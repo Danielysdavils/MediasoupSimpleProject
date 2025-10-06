@@ -1,0 +1,33 @@
+# Logs
+/mediasoup_demo/logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+about-gpu-2025-10-03T17-52-41-773Z.txt
+
+/back-end/node_modules
+/mediasoup_demo/node_modules
+.DS_Store
+dist
+dist-ssr
+coverage
+*.local
+
+/cypress/videos/
+/cypress/screenshots/
+
+# Editor directories and files
+/mediasoup_demo/.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+*.tsbuildinfo
