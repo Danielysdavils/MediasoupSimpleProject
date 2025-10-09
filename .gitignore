@@ -8,6 +8,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 about-gpu-2025-10-03T17-52-41-773Z.txt
+notas.txt
 
 /back-end/node_modules
 /mediasoup_demo/node_modules
