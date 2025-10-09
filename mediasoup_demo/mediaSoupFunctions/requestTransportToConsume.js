@@ -35,7 +35,7 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
         //     createConsumer(consumerTransport, videoPid, device, socket, 'video', i),
         // ]);
 
-        // ajuste para validar caso tenhamos consumer: (*) || só video || só audio || audio e video
+        // ajuste para validar caso tenhamos consumer: (*) só audio || audio e video
         const audioConsumer = audioPid ? await createConsumer(consumerTransport, audioPid, device, socket, 'audio', i) : null;
         const videoConsumer = videoPid ? await createConsumer(consumerTransport, videoPid, device, socket, 'video', i) : null;
 

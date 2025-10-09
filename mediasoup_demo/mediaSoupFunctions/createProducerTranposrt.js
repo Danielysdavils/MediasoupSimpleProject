@@ -29,6 +29,8 @@ const createProduceTransport = (socket, device) => new Promise(async(resolve, re
         // emit startProducing
         console.log("Produce is now running!");
         const { kind, rtpParameters } = parameters;
+        console.log("AQUI DEVERIA APARECER AUDII E VIDEO", kind);
+
         const produceResp = await socket.emitWithAck('startProducing', {kind, rtpParameters});
         console.log(produceResp, "produceResp is back!");
 

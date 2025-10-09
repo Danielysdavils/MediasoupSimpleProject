@@ -84,12 +84,14 @@ class Client{
 
     addProducer(kind, newProducer){
         this.producer[kind] = newProducer;
-        if(kind === 'audio'){
-            // add this to out activeSpeakerObserver
-            this.room.activeSpeakerObserver.addProducer({
-                producerId: newProducer.id
-            });
-        }
+        
+        //Uma vez mais, não precisamos obsever. Gerenaciamento automatico
+        // if(kind === 'audio'){
+        //     // add this to out activeSpeakerObserver
+        //     this.room.activeSpeakerObserver.addProducer({
+        //         producerId: newProducer.id
+        //     });
+        // }
     }
 
     addConsumer(kind, newConsumer, downstreamTransport){

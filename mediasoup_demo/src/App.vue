@@ -8,40 +8,44 @@
 	  	</div>
 
 		  <!-- Buttons that setup the call/control feed -->
-	    <div id="control-buttons" class="d-none" v-if="show_controls">
-        <section>
+	    <div id="control-buttons" class="d-none" style="display:flex; align-items: center;" v-if="show_controls">
+        <section style="display: flex;">
           <h4>enable audio</h4>
           <input type="checkbox" name="checkboxAudio" class="checbox-input" v-model="audioEnable" />
           <h4>enable video</h4>
           <input type="checkbox" name="checkboxVideo" class="checbox-input" v-model="videoEnable" />
         </section>
-        <button ref="enable-feed" @click="enableFeed" class="btn btn-primary"> Feed On</button>
-		    <button ref="send-feed" @click="sendFeed" class="btn btn-success" disabled> Send Feed</button>
-		    <button ref="mute" @click="muteAudio" class="btn btn-success" disabled> Audio On</button>
-		    <button ref="hang-up" class="btn btn-danger" disabled> Hangup</button>
+        <div v-if="!newRoom">
+          <button ref="enable-feed" @click="requestPromotion" class="btn btn-primary">Question?</button>
+        </div>
+        <div v-else>
+          <button ref="start-feed" @click="startFeed" class="btn btn-primary">Start Transmission</button>
+        </div>
+        <h4 ref="state-feed" class="btn btn-success">OFF</h4>
+		    <button ref="mute" @click="muteAudio" class="btn btn-success" disabled>Audio On</button>
 		  </div>
     </section>
 
 		<!-- Small videos at top (non dominant speaker) -->
 		<section style="height: 50%;">
       <div id="remote-media" style="display:flex;align-items: center;justify-content: center;">
-			<div class="remote-video-container border border-primary remote-speaker" style="width:20%">
-				<video ref="remote-video-1" id="remote-video-1" class="w-100 h-100 remote-video" autoplay inline controls></video>
-				<div ref="username-1" id="username-1" class="username"></div>
-			</div>
-      <div class="remote-video-container border border-primary" style="width: 20%;">
-        <video ref="remote-video-2" id="remote-video-2" class="w-100 h-100 remote-video" autoplay inline controls></video>
-        <div ref="username-2" id="username-2" class="username"></div>
-      </div>
-      <div class="remote-video-container border border-primary" style="width: 20%;">
-        <video ref="remote-video-3" id="remote-video-3" class="w-100 h-100 remote-video" autoplay inline controls></video>
-        <div ref="username-3" id="username-3" class="username"></div>
-      </div>
-      <div class="remote-video-container border border-primary" style="width: 20%;">
-        <video ref="remote-video-4" id="remote-video-4" class="w-100 h-100 remote-video" autoplay inline controls></video>
-        <div ref="username-4" id="username-4" class="username"></div>
+        <div class="remote-video-container border border-primary remote-speaker" style="width:20%">
+          <video ref="remote-video-1" id="remote-video-1" class="w-100 h-100 remote-video" autoplay inline controls></video>
+          <div ref="username-1" id="username-1" class="username"></div>
         </div>
-      </div>
+        <div class="remote-video-container border border-primary" style="width: 20%;">
+          <video ref="remote-video-2" id="remote-video-2" class="w-100 h-100 remote-video" autoplay inline controls></video>
+          <div ref="username-2" id="username-2" class="username"></div>
+        </div>
+        <!-- <div class="remote-video-container border border-primary" style="width: 20%;">
+          <video ref="remote-video-3" id="remote-video-3" class="w-100 h-100 remote-video" autoplay inline controls></video>
+          <div ref="username-3" id="username-3" class="username"></div>
+        </div>
+        <div class="remote-video-container border border-primary" style="width: 20%;">
+          <video ref="remote-video-4" id="remote-video-4" class="w-100 h-100 remote-video" autoplay inline controls></video>
+          <div ref="username-4" id="username-4" class="username"></div>
+        </div> -->
+      </div> 
     </section>
 	
 		<!-- Current Speaker Video (Large Center Video) -->
@@ -69,7 +73,7 @@
 <script setup>
   import { io } from 'socket.io-client'
   import { Device } from 'mediasoup-client'
-  import { ref, useTemplateRef } from 'vue'
+  import { ref, useTemplateRef, toRaw } from 'vue'
   import createProduceTransport from '../mediaSoupFunctions/createProducerTranposrt';
   import createProducer from '../mediaSoupFunctions/createProducer';
   import requestTransportToConsume from '../mediaSoupFunctions/requestTransportToConsume';
@@ -96,32 +100,59 @@
       // consumers is an {} with key audioId, value of combined feed
     console.log(newListOfActives);
     try{
-      let slot = 0;
       // remove all videos from video Elms ** most simple way to do
       const remoteEls = document.getElementsByClassName('remote-video');
       for(let el of remoteEls){
+        console.log("aqui?");
         el.srcObject = null;
       }
 
-      newListOfActives.forEach(aid => {
+      console.log("=== CONSUMERS ====");
+      console.log(consumers);
+      
+      // itera consumers
+      for(let i = 0; i < newListOfActives.length ; i++){
+        let aid = newListOfActives[i];
         if(aid !== audioProducer?.id){
-          // do not show THIS client in a video tag, other than local
-          // put this video in the next available slot
-          const remoteVideo = document.getElementById(`remote-video-${slot}`);
+          const remoteVideo = document.getElementById(`remote-video-${i}`);
+
           console.log("remote-video", remoteVideo);
-          console.log("CONSUMERS", consumers);
           console.log("AID: ", aid);
-          const remoteVideoUserName = document.getElementById(`username-${slot}`);
+
+          const remoteVideoUserName = document.getElementById(`username-${i}`);
           const consumerForThisSlot = consumers[aid];
           console.log("CONSUMER: ", consumerForThisSlot);
 
           remoteVideo.srcObject = consumerForThisSlot?.combineStream;
           remoteVideoUserName.innerHTML = consumerForThisSlot?.userName;
-          slot++; //for the next
         }
-      })
+      }
     }catch(err){
       console.log(err);
+    }
+  });
+
+  socket.on('promoteDelta', async ({ promoted, demoted }) => {
+    console.log("== promoteDelta ==", { promoted, demoted });
+    if (promoted === user.value) {
+      console.log("Você passou a ser producer!");
+      if (!localStream) await enableFeed();
+      await sendFeed();
+    } 
+    else if (demoted === user.value) {
+      console.log("Você passou a ser consumer!");
+      await stopFeed();
+    } 
+    else {
+      console.log(`${promoted} foi promovido${demoted ? ` e ${demoted} foi rebaixado` : ''}`);
+    }
+  });
+
+  socket.on('promotionDenied', ({ reason }) => {
+    if (reason === 'onlyCreator') {
+      alert("Apenas o criador está ativo, não há ninguém para substituir.");
+    } else {
+      alert("Falha ao tentar promoção.");
     }
   });
 
@@ -134,12 +165,16 @@
   const user = ref("");
   const roomId = ref("");
   const show_controls = ref(false);
+  const newRoom = ref(false);
 
   const joinRoom = async () => {
     console.log("Joining...");
 
     const joinRoomResp = await socket.emitWithAck('joinRoom', {user: user.value, room: roomId.value});
     console.log(joinRoomResp);
+
+    //caso o user seja o criador, mudamos front
+    newRoom.value = joinRoomResp.newRoom;
 
     device = new Device(); 
     await device.load({routerRtpCapabilities: joinRoomResp.routerRtpCapabilities});
@@ -156,14 +191,17 @@
     console.log("request transport");
     requestTransportToConsume(joinRoomResp, socket, device, consumers);
 
+    //create producer transport - teste para medir eficiencia de troca!
+    //producerTransport = await createProduceTransport(socket, device);
+    //console.log("Have producer transport. Time to produce!"); // vou testart mover para o join!
+
     show_controls.value = true;
   }
 
   const videoLeft_button = useTemplateRef("local-video-left");
-  const sendFeed_button = useTemplateRef("send-feed");
-  const enableFeed_button = useTemplateRef("enable-feed");
   const mute_button = useTemplateRef("mute");
-  const handUp_button = useTemplateRef("hang-up");
+  const state_feed = useTemplateRef("state-feed");
+  const start_feed = useTemplateRef("start-feed");
 
   let audioEnable = ref(true);
   let videoEnable = ref(true);
@@ -184,27 +222,39 @@
         videoLeft_button.value.srcObject = localStream;
       }
 
-      enableFeed_button.value.disabled = true;
-      sendFeed_button.value.disabled = false;
       mute_button.value.disabled = !audioEnable.value;
-
     }catch(err){
       console.log("ERROR OPEN LOCALSTREAM", err);
     }
+  }
+
+  // ao enviar uma perguna habilita camera/audio
+  const requestPromotion = () => {
+    console.log("Request promotion to speak!");
+    
+    socket.emitWithAck('requestPromotion', {user: user.value}); 
   }
 
   const sendFeed = async () => {
     // create a transport for a this client's upstrea,
     // it will handle both audio and video producers
     producerTransport = await createProduceTransport(socket, device);
-    console.log("Have producer transport. Time to produce!");
-    // create or producers
+    console.log("Have producer transport. Time to produce!"); // vou testart mover para o join!
+
+    // create or producers - promovido a producer || creador da sala
     const producers = await createProducer(localStream, producerTransport);
     audioProducer = producers.audioProducer;
     videoProducer = producers.videoProducer;
     console.log(producers);
     
-    handUp_button.value.disabled = false;
+    state_feed.value.innerHTML = "ON!";
+  }
+
+  //Pro criador da sala
+  const startFeed = async () => {
+    start_feed.value.disabled = true;
+    await enableFeed();
+    await sendFeed();
   }
 
   const muteAudio = () => {

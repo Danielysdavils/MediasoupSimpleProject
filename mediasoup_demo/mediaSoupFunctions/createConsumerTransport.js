@@ -1,8 +1,10 @@
 const createConsumerTransport = (transportParams, device, socket, audioPid) => {
     // make a donwstream transport for ONE producer/peer/client (with audio and video producer)
-    const consumerTransport = device.createRecvTransport(transportParams, [
-        { urls: 'stun:stun.l.google.com:19302' } // pode funcionar mesmo offline; em LAN é ignorado
-    ]);
+    
+    // const consumerTransport = device.createRecvTransport(transportParams, [
+    //     { urls: 'stun:stun.l.google.com:19302' } // pode funcionar mesmo offline; em LAN é ignorado
+    // ]);
+    const consumerTransport = device.createRecvTransport(transportParams);
     
     consumerTransport.on('connectionstatechange', state => {
         console.log("===conectionstatechange===");
