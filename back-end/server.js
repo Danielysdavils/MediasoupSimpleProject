@@ -198,6 +198,7 @@ io.on('connect', socket => {
         // newTransportByPeer is an object, each property is a socket.id that
         // has transports to make. They are in an array, by pid
         for(const [socketId, audioPidsToCreate] of Object.entries(newTransportByPeer)){
+            console.log("AUDIO PIDS TO CREATE", audioPidsToCreate);
             // we have the audioPidsToCreate this socket needs to create
             // map the video pids and the username
             const videoPidsToCreate = audioPidsToCreate.map(aPid => {
@@ -237,6 +238,8 @@ io.on('connect', socket => {
             if(!client.room.router.canConsume({producerId: pid, rtpCapabilities})){
                 ackCb('cannotConsume')
             }else{
+                console.log("==user downstream==", client.downstreamTransport);
+
                 // we can consume!!
                 const downStreamTransport = client.downstreamTransport.find(t => {
                     if(kind == 'audio'){
@@ -268,6 +271,7 @@ io.on('connect', socket => {
                     rtpParameters: newConsumer.rtpParameters
                 }
 
+                console.log("em algn momento retorna los parametros?");
                 ackCb(clientParams);
             }
         }catch(err){

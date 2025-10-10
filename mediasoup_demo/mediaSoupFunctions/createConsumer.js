@@ -4,6 +4,11 @@ const createConsumer = (consumerTransport, pid, device, socket, kind, slot) => {
         // the params we get back, and run consume(). That gives us or track
         const consumeParams = await socket.emitWithAck('consumeMedia', {rtpCapabilities: device.rtpCapabilities, pid, kind});
         console.log(consumeParams);
+        if(consumeParams === 'noTransport'){
+            console.log("noTransport");
+            resolve();
+        }
+
         if(consumeParams === 'cannotConsume'){
             console.log("cannot consume");
             resolve();

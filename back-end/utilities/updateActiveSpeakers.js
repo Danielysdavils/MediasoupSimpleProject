@@ -1,7 +1,7 @@
 const updateActiveSpeaker = (room, io) => {
     console.log("update active speaker")
     const newTransportByPeer = {};
-    const activeSpeakers = room.currentProducers.map(p => p?.producer?.audio?.id);
+    const activeSpeakers = room.currentProducers.map(p => p?.producer?.audio?.id).filter(id => !!id);
     console.log('producers in activeSpeaker', room.currentProducers);
     console.log('activeSpeakers:', activeSpeakers);
 
@@ -24,7 +24,7 @@ const updateActiveSpeaker = (room, io) => {
             downstream.audio.resume();
             downstream.video?.resume();
         } else {
-            newSpeakersToThisClient.push(aPid);
+            if(aPid) newSpeakersToThisClient.push(aPid);
         }
         }
 

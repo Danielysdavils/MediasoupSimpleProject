@@ -73,6 +73,7 @@ class Client{
             }else if(type === 'consumer'){
                 // add the new transport and the 2 pids, to downstream transport 
                 this.downstreamTransport.push({
+                    type,
                     transport, // will handle both audio and video
                     associatedVideoPid: videoPid,
                     associatedAudioPid: audioPid

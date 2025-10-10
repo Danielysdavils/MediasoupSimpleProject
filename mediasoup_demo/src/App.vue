@@ -192,8 +192,8 @@
     requestTransportToConsume(joinRoomResp, socket, device, consumers);
 
     //create producer transport - teste para medir eficiencia de troca!
-    //producerTransport = await createProduceTransport(socket, device);
-    //console.log("Have producer transport. Time to produce!"); // vou testart mover para o join!
+    producerTransport = await createProduceTransport(socket, device);
+    console.log("Have producer transport. Time to produce!"); // vou testart mover para o join!
 
     show_controls.value = true;
   }
@@ -228,6 +228,32 @@
     }
   }
 
+  const stopFeed = async () => {
+    try{
+      if(audioProducer){
+        await audioProducer.close();
+        audioProducer = null;
+      }
+
+      if(videoProducer){
+        await videoProducer.close();
+        videoProducer = null;
+      }
+
+      if(localStream){
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+
+      mute_button.value.disabled = true;
+      state_feed.value.innerHTML = "OFF!";
+
+      console.log("FEED LOCAL FECHADO COM SUCESSO!");
+    }catch(err){
+      console.log(err);
+    }
+  }
+
   // ao enviar uma perguna habilita camera/audio
   const requestPromotion = () => {
     console.log("Request promotion to speak!");
@@ -238,8 +264,8 @@
   const sendFeed = async () => {
     // create a transport for a this client's upstrea,
     // it will handle both audio and video producers
-    producerTransport = await createProduceTransport(socket, device);
-    console.log("Have producer transport. Time to produce!"); // vou testart mover para o join!
+    //producerTransport = await createProduceTransport(socket, device);
+    //console.log("Have producer transport. Time to produce!"); // vou testart mover para o join!
 
     // create or producers - promovido a producer || creador da sala
     const producers = await createProducer(localStream, producerTransport);
