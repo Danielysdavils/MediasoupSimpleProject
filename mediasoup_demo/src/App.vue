@@ -33,10 +33,10 @@
           <video ref="remote-video-1" id="remote-video-1" class="w-100 h-100 remote-video" autoplay inline controls></video>
           <div ref="username-1" id="username-1" class="username"></div>
         </div>
-        <div class="remote-video-container border border-primary" style="width: 20%;">
+        <!-- <div class="remote-video-container border border-primary" style="width: 20%;">
           <video ref="remote-video-2" id="remote-video-2" class="w-100 h-100 remote-video" autoplay inline controls></video>
           <div ref="username-2" id="username-2" class="username"></div>
-        </div>
+        </div> -->
         <!-- <div class="remote-video-container border border-primary" style="width: 20%;">
           <video ref="remote-video-3" id="remote-video-3" class="w-100 h-100 remote-video" autoplay inline controls></video>
           <div ref="username-3" id="username-3" class="username"></div>
@@ -77,7 +77,9 @@
   import createProduceTransport from '../mediaSoupFunctions/createProducerTranposrt';
   import createProducer from '../mediaSoupFunctions/createProducer';
   import requestTransportToConsume from '../mediaSoupFunctions/requestTransportToConsume';
+  import { useLayoutStore } from './stores/layout';
 
+  const layoutStore = useLayoutStore();
 
   let device = null;
   let localStream = null;
@@ -85,7 +87,7 @@
   let videoProducer = null;
   let audioProducer = null; // THIS client's producer
   let consumers = {} // key off the audioPid
-
+  
 
   const socket = io.connect(`http://localhost:3031`);
   socket.on('connect', () => {
@@ -98,37 +100,39 @@
     // an array of the most recent 5 dominant speakers. Just grab the 1st
       //and put ir in the slot. Move everything else down
       // consumers is an {} with key audioId, value of combined feed
-    console.log(newListOfActives);
     try{
       // remove all videos from video Elms ** most simple way to do
       const remoteEls = document.getElementsByClassName('remote-video');
-      for(let el of remoteEls){
-        console.log("aqui?");
-        el.srcObject = null;
-      }
-
+      for(let el of remoteEls) el.srcObject = null;
+      
       console.log("=== CONSUMERS ====");
       console.log(consumers);
       
       // itera consumers
       for(let i = 0; i < newListOfActives.length ; i++){
         let aid = newListOfActives[i];
-        if(aid !== audioProducer?.id){
-          const remoteVideo = document.getElementById(`remote-video-${i}`);
+        const consumerForThisSlot = consumers[aid];
 
-          console.log("remote-video", remoteVideo);
-          console.log("AID: ", aid);
+        if(!consumerForThisSlot) continue;
 
-          const remoteVideoUserName = document.getElementById(`username-${i}`);
-          const consumerForThisSlot = consumers[aid];
-          console.log("CONSUMER: ", consumerForThisSlot);
+        const userName = consumerForThisSlot.userName;
+        const slotIndex = layoutStore.layoutMap[userName] ?? layoutStore.incrementSlot(); 
 
-          remoteVideo.srcObject = consumerForThisSlot?.combineStream;
-          remoteVideoUserName.innerHTML = consumerForThisSlot?.userName;
-        }
+        const remoteVideo = document.getElementById(`remote-video-${slotIndex}`);
+        const remoteVideoUserName = document.getElementById(`username-${slotIndex}`);
+
+        console.log("remote-video", remoteVideo);
+        console.log("AID: ", aid);
+        console.log("CONSUMER: ", consumerForThisSlot);
+
+        if (remoteVideo && consumerForThisSlot.combineStream)
+          remoteVideo.srcObject = consumerForThisSlot.combineStream;
+
+        if (remoteVideoUserName)
+          remoteVideoUserName.innerHTML = userName;
       }
     }catch(err){
-      console.log(err);
+      console.log("updateActiveSpeaker error: ", err);
     }
   });
 
@@ -175,6 +179,7 @@
 
     //caso o user seja o criador, mudamos front
     newRoom.value = joinRoomResp.newRoom;
+    layoutStore.updateCreator(joinRoomResp.roomCreator);
 
     device = new Device(); 
     await device.load({routerRtpCapabilities: joinRoomResp.routerRtpCapabilities});

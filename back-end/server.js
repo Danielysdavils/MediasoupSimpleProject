@@ -66,18 +66,23 @@ io.on('connect', socket => {
         let userName = obj.user;
         let roomName = obj.room;
 
-        let newRoom = false;
+        let newRoom = false; // (*) passar a propia sala para fornt
+        let roomCreator = null; // (*)
+
         client = new Client(userName, socket);
         let requestedRoom = rooms.find(room => room.roomName == roomName);
         if(!requestedRoom){
             console.log("add new room");
             newRoom = true;
+            roomCreator = userName;
             //make the new room, add a worker, add a router
             const workerToUse = await getWorker(workers);
             requestedRoom = new Room(roomName, client, workerToUse);
             await requestedRoom.createRouter(io);
             rooms.push(requestedRoom);
-        }
+        }else
+            roomCreator = requestedRoom?.creator?.userName; 
+
         // add the room to the client
         client.room = requestedRoom;
         // add the client to the Room clients
@@ -114,6 +119,7 @@ io.on('connect', socket => {
         ackCb({
             routerRtpCapabilities: client.room.router.rtpCapabilities,
             newRoom,
+            roomCreator,
             audioPidsToCreate,
             videoPidsToCreate,
             associatedUserNames

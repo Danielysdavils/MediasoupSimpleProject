@@ -1,7 +1,13 @@
 import createConsumerTransport from "../mediaSoupFunctions/createConsumerTransport";
 import createConsumer from "../mediaSoupFunctions/createConsumer";
+import renderLayout from "../layoutFunctions/renderLayout";
+
+import { useLayoutStore } from "@/stores/layout";
+
+
 
 const requestTransportToConsume = (consumeData, socket, device, consumers) => {
+    const layoutStore = useLayoutStore()
 /*
     How many transport? One for each consumer?
     Or one that handles all consumers?
@@ -20,6 +26,13 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
 */
     consumeData.audioPidsToCreate.forEach(async(audioPid, i) => {
         const videoPid = consumeData.videoPidsToCreate[i]; // pode ser undefined se só tiver audio!
+        const userName = consumeData.associatedUserNames[i]
+
+        // Aqui verifico se é criador, caso sim uso slot 0, caso nao procuro o seguinte slot
+        if(!(userName in layoutStore.layoutMap)){
+            console.log("CREATOR NOT HERE!");
+            layoutStore.setLayoutMap(userName, (userName === layoutStore.creatorUserName) ? 0 : layoutStore.incrementSlot())
+        }
 
         // expecting back transport params fot THIS audioPid. Meybe 5 times, meybe 0
         const consumerTransportParams = await socket.emitWithAck('requestTransport', {
@@ -49,20 +62,15 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
         if(videoConsumer?.track) tracks.push(videoConsumer.track);
         const combineStream = new MediaStream(tracks);
 
-        const remoteVideo = document.getElementById(`remote-video-${i}`);
-        if(remoteVideo && combineStream.getTracks().length > 0)
-            remoteVideo.srcObject = combineStream;
+        // const remoteVideo = document.getElementById(`remote-video-${i}`);
+        // if(remoteVideo && combineStream.getTracks().length > 0)
+        //     remoteVideo.srcObject = combineStream;
 
-        const remoteVideoUserName = document.getElementById(`username-${i}`);
-        if(remoteVideoUserName)
-            remoteVideoUserName.innerHTML = consumeData.associatedUserNames[i] || "Unknown";
+        // const remoteVideoUserName = document.getElementById(`username-${i}`);
+        // if(remoteVideoUserName)
+        //     remoteVideoUserName.innerHTML = consumeData.associatedUserNames[i] || "Unknown";
 
         console.log("Hope this works....");
-
-        console.log(i);
-        console.log(consumeData.associatedUserNames);
-        console.log(consumeData.associatedUserNames[i]);
-
         consumers[audioPid] = {
             combineStream,
             userName: consumeData.associatedUserNames[i],
@@ -70,6 +78,9 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
             audioConsumer,
             videoConsumer
         }
+
+        // preciso avisar que há novos consumidores
+        renderLayout(consumers);
     })
 }
 
