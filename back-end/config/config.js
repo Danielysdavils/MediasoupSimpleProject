@@ -15,13 +15,26 @@ const config = {
             'rtcp'
         ]
     },
-    routerMediaCodecs: [
+    routerMediaCodecs: [  
         {
             kind: "audio",
             mimeType: "audio/opus",
             clockRate: 48000,
-            channels: 2
+            channels: 2,
+            parameters: {
+                "maxaveragebitrate": 64000,
+                "useinbandfec": 1,
+                "usedtx": 1,
+                "stereo": 0
+
+            }
         },
+        // {
+        //     kind: "audio",
+        //     mimeType: "audio/PCMU",
+        //     clockRate: 8000,
+        //     channels: 1
+        // },
         {
             kind: "video",
             mimeType: "video/H264",

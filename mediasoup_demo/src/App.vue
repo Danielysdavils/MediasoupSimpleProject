@@ -73,7 +73,7 @@
 <script setup>
   import { io } from 'socket.io-client'
   import { Device } from 'mediasoup-client'
-  import { ref, useTemplateRef, toRaw } from 'vue'
+  import { ref, useTemplateRef } from 'vue'
   import createProduceTransport from '../mediaSoupFunctions/createProducerTranposrt';
   import createProducer from '../mediaSoupFunctions/createProducer';
   import requestTransportToConsume from '../mediaSoupFunctions/requestTransportToConsume';
@@ -89,7 +89,7 @@
   let consumers = {} // key off the audioPid
   
 
-  const socket = io.connect(`http://localhost:3031`);
+  const socket = io.connect(`http://172.233.24.100:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });
@@ -219,7 +219,9 @@
 
       localStream = await navigator.mediaDevices.getUserMedia({
         video: videoEnable.value,
-        audio: audioEnable.value, // ** simple just for now
+        audio: {
+          autoGainControl: false, noiseSuppression: true, echoCancellation: false //parameters for audio quality
+        }, // ** simple just for now
       });
 
       if(videoEnable.value){
