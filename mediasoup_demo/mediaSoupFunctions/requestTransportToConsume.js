@@ -4,8 +4,6 @@ import renderLayout from "../layoutFunctions/renderLayout";
 
 import { useLayoutStore } from "@/stores/layout";
 
-
-
 const requestTransportToConsume = (consumeData, socket, device, consumers) => {
     const layoutStore = useLayoutStore()
 /*
@@ -26,7 +24,7 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
 */
     consumeData.audioPidsToCreate.forEach(async(audioPid, i) => {
         const videoPid = consumeData.videoPidsToCreate[i]; // pode ser undefined se só tiver audio!
-        const userName = consumeData.associatedUserNames[i]
+        const userName = consumeData.associatedUserNames[i];
 
         // Aqui verifico se é criador, caso sim uso slot 0, caso nao procuro o seguinte slot
         if(!(userName in layoutStore.layoutMap)){
@@ -40,35 +38,19 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
             audioPid
         });
 
-        console.log("Consumer transport params: ", consumerTransportParams);
-
         const consumerTransport = createConsumerTransport(consumerTransportParams, device, socket, audioPid);
-        // const [ audioConsumer, videoConsumer ] = await Promise.all([
-        //     createConsumer(consumerTransport, audioPid, device, socket, 'audio', i),
-        //     createConsumer(consumerTransport, videoPid, device, socket, 'video', i),
-        // ]);
-
+        
         // ajuste para validar caso tenhamos consumer: (*) só audio || audio e video
         const audioConsumer = audioPid ? await createConsumer(consumerTransport, audioPid, device, socket, 'audio', i) : null;
         const videoConsumer = videoPid ? await createConsumer(consumerTransport, videoPid, device, socket, 'video', i) : null;
 
         console.log("audioConsumer:", audioConsumer);
         console.log("videoConsumer:", videoConsumer);
-        // create a new mediaStream on the client with both tracks
-        // this is why we have gonna through all this pain!!
-        // const combineStream = new MediaStream([audioConsumer?.track, videoConsumer?.track]); // ajustado para considerar (*)
+        
         const tracks = [];
         if(audioConsumer?.track) tracks.push(audioConsumer.track);
         if(videoConsumer?.track) tracks.push(videoConsumer.track);
         const combineStream = new MediaStream(tracks);
-
-        // const remoteVideo = document.getElementById(`remote-video-${i}`);
-        // if(remoteVideo && combineStream.getTracks().length > 0)
-        //     remoteVideo.srcObject = combineStream;
-
-        // const remoteVideoUserName = document.getElementById(`username-${i}`);
-        // if(remoteVideoUserName)
-        //     remoteVideoUserName.innerHTML = consumeData.associatedUserNames[i] || "Unknown";
 
         console.log("Hope this works....");
         consumers[audioPid] = {
@@ -81,7 +63,7 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
 
         // preciso avisar que há novos consumidores
         renderLayout(consumers);
-    })
+    });
 }
 
 export default requestTransportToConsume;

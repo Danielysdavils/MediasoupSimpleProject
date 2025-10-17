@@ -9,27 +9,43 @@ const updateActiveSpeaker = (room, io) => {
         const newSpeakersToThisClient = [];
 
         for (const p of room.currentProducers) {
-        const aPid = p.producer.audio?.id;
+            const aPid = p.producer.audio?.id;
+            const screenPid = p.producer.videoScreen?.id;
+            console.log("SCREEN PID? ", screenPid);
 
-        if (client?.producer?.audio && client.producer.audio.id === aPid) {
-            client.producer.audio.resume();
-            client?.producer?.video?.resume();
-        }
+            if (client?.producer?.audio && client.producer.audio.id === aPid) {
+                client.producer.audio.resume();
+                client?.producer?.video?.resume();
 
-        const downstream = client.downstreamTransport.find(
-            t => t?.associatedAudioPid === aPid
-        );
+                client?.producer?.audioScreen?.resume();
+                client?.producer?.videoScreen?.resume();
+            }
 
-        if (downstream) {
-            downstream.audio.resume();
-            downstream.video?.resume();
-        } else {
-            if(aPid) newSpeakersToThisClient.push(aPid);
-        }
+            /*
+                Aqui podemos ter dois downstreamTransports, um para a tela e outro para a webcam.
+                Por isso precisamos filtrar e despausar conforme o caso
+            */
+            const downstreamWebcam = client.downstreamTransport.find(
+                t => t?.associatedAudioPid === aPid  
+            );
+
+            const downsStreamScreen = client.downstreamTransport.find(
+                t => t?.associatedVideoPid === screenPid
+            );
+
+            if(downstreamWebcam){
+                downstreamWebcam.audio.resume(); // audio sempre obrigatorio para webcam
+                downstreamWebcam.video?.resume(); // video opcional
+            }else if(aPid) newSpeakersToThisClient.push(aPid);
+
+            if(downsStreamScreen){
+                downsStreamScreen.audio?.resume(); // audio opcional para compartilhamento de tela
+                downsStreamScreen.video.resume(); // video obrigatorio
+            }else if(screenPid) newSpeakersToThisClient.push(screenPid);            
         }
 
         if (newSpeakersToThisClient.length) {
-        newTransportByPeer[client.socket.id] = newSpeakersToThisClient;
+            newTransportByPeer[client.socket.id] = newSpeakersToThisClient;
         }
     }
 

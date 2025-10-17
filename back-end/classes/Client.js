@@ -6,7 +6,7 @@ class Client{
         this.socket = socket;
         // instead of calling this producerTransport, call it upstream, 
         // THIS client's transport for sending data
-        this.upstreamTransport = null;
+        this.upstreamTransport = []; // we have 2 transport: for webcam, for desktopScreen
         // we will have an audio and video consumer
         this.producer = {};
         // instead of calling this consumerTransport, call it downstream, THIS client's transport
@@ -27,7 +27,7 @@ class Client{
         this.room = null // this will be a Room object
     }
 
-    addTransport(type, audioPid = null, videoPid = null){
+    addTransport(type, audioPid = null, videoPid = null, screen = false,){
         return new Promise(async (resolve, reject) => {
             const { listenIps, initialAvailableOutgoinBitrate, maxIncomingBitrate } = config.webRtcTransport;
             const transport = await this.room.router.createWebRtcTransport({
@@ -59,22 +59,17 @@ class Client{
 
             if(type === 'producer'){
                 // set the new transport to the clients's upstreamTransport
-                this.upstreamTransport = transport;
-                // setInterval(async () => {
-                //     const stats = await this.upstreamTransport.getStats();
-                //     for(const report of stats.values()){
-                //         if(report.type == "webrtc-transport"){
-                //             console.log(report.bytesReceived, '-', report.rtpBytesReceived);
-                //             //console.log(report);
-                //         }
-                //     }
-                // }, 1000);
-
+                this.upstreamTransport.push({
+                    screen, //if this tranport is for desktop screen
+                    transport
+                }); // need to change for 2 transport
+                
             }else if(type === 'consumer'){
                 // add the new transport and the 2 pids, to downstream transport 
                 this.downstreamTransport.push({
                     type,
                     transport, // will handle both audio and video
+                    screen,
                     associatedVideoPid: videoPid,
                     associatedAudioPid: audioPid
                 });
@@ -83,16 +78,11 @@ class Client{
         });
     }
 
-    addProducer(kind, newProducer){
-        this.producer[kind] = newProducer;
-        
-        //Uma vez mais, não precisamos obsever. Gerenaciamento automatico
-        // if(kind === 'audio'){
-        //     // add this to out activeSpeakerObserver
-        //     this.room.activeSpeakerObserver.addProducer({
-        //         producerId: newProducer.id
-        //     });
-        // }
+    addProducer(kind, newProducer, screen){
+        if(screen){
+            this.producer[`${kind}Screen`] = newProducer;
+        }else 
+            this.producer[kind] = newProducer;
     }
 
     addConsumer(kind, newConsumer, downstreamTransport){

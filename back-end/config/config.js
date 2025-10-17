@@ -56,8 +56,8 @@ const config = {
     webRtcTransport: {
         listenIps: [
             {
-                ip: '127.0.0.1',
-                aouncedIp: null // replace by public address
+                ip: '172.16.2.210',
+                aouncedIp: '172.16.2.210' // replace by public address
                 //anouncedIp: serverIp
             }
         ],

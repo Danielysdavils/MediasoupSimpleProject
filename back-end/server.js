@@ -90,7 +90,7 @@ io.on('connect', socket => {
         // add this socket to the socket room
         socket.join(client.room.roomName);
 
-        console.log("==CurrentProducers==");
+        console.log("== CurrentProducers ==");
         console.log(client.room.currentProducers);
 
         //PLACEHOLDER... 6. Eventually, we will need to get all current producers
@@ -126,12 +126,12 @@ io.on('connect', socket => {
         }) 
     });
 
-    socket.on('requestTransport', async ({ type, audioPid }, ackCb) => {
+    socket.on('requestTransport', async ({ type, audioPid, screen }, ackCb) => {
         // wheter producer or consumer, client needs params
         let clientTransportParams;
         if(type == 'producer'){
             //run a client, wiich is part of our client class
-            clientTransportParams = await client.addTransport(type);
+            clientTransportParams = await client.addTransport(type, null, null, screen);
         }else if(type == 'consumer'){
             // we have 1 tranposrt per client we are streaming from
             // each transport will have an audio and a video producer/consumer
@@ -144,11 +144,13 @@ io.on('connect', socket => {
         ackCb(clientTransportParams);
     });
 
-    socket.on('connectTransport', async ({dtlsParameters, type, audioPid}, ackCb) => {
+    socket.on('connectTransport', async ({dtlsParameters, type, audioPid, screen}, ackCb) => {
         if(type === 'producer'){
             try{
-                await client.upstreamTransport.connect({ dtlsParameters });
+                const clientUpstream = client.upstreamTransport.find(ut => ut.screen === screen);
+                await clientUpstream.transport.connect({ dtlsParameters });
                 ackCb('success');
+
             }catch(err){
                 console.log(err + "in connectTransport");
                 ackCb('error');
@@ -169,16 +171,17 @@ io.on('connect', socket => {
         }
     });
 
-    socket.on('startProducing', async ({ kind, rtpParameters }, ackCb) => {
+    socket.on('startProducing', async ({ kind, rtpParameters, screen }, ackCb) => {
         // create a producer with the rtpParameters we were sent
+        console.log("START PRODUCING FOR SCREEN");
         try{
-            const newProducer = await client.upstreamTransport.produce({kind, rtpParameters});
+            const clientUpstream = client.upstreamTransport.find(ut => ut.screen == screen);
+            const newProducer = await clientUpstream.transport.produce({kind, rtpParameters});
+
             // add the producer to this clien object
-            console.log("add kind:", kind, "into:", client.producer);
-            client.addProducer(kind, newProducer);
-            console.log("finish add kind:", kind, "into:", client.producer);
+            client.addProducer(kind, newProducer, screen);
+
             if(kind === 'audio'){
-                console.log("aqui criando audio producer");
                 //client.room.activeSpeakerList.push(newProducer.id);
                 // nao mais activeSpeakerList, mudamos para currentProducers com clients produtores
                 // aqui precisamos adicionar nosso criador da sala, que não é adicionado em requestPromote
@@ -195,9 +198,8 @@ io.on('connect', socket => {
             console.log(err);
             ackCb(err)
         }
-
-        // PLACEHOLDER 1- if this is an audiotrack, then this is a new posible speaker
-        // PLACEHOLDER 2 - if the room is populated, then let the connected peers knows someone joins
+        
+        console.log("UPDATING ACTIVE SPEAKERS");
         
         // run updateActiveSpeaker
         const newTransportByPeer = updateActiveSpeaker(client.room, io);

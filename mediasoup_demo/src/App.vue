@@ -23,6 +23,8 @@
         </div>
         <h4 ref="state-feed" class="btn btn-success">OFF</h4>
 		    <button ref="mute" @click="muteAudio" class="btn btn-success" disabled>Audio On</button>
+        <button ref="screenEnable" @click="enableScreenSharing" class="btn btn-success" disabled>ScreenSharing</button>
+        <button ref="screenStop" @click="stopScreenSharing" class="btn btn-success" disabled>Stop ScreenSharing</button>
 		  </div>
     </section>
 
@@ -33,18 +35,6 @@
           <video ref="remote-video-1" id="remote-video-1" class="w-100 h-100 remote-video" autoplay inline controls></video>
           <div ref="username-1" id="username-1" class="username"></div>
         </div>
-        <!-- <div class="remote-video-container border border-primary" style="width: 20%;">
-          <video ref="remote-video-2" id="remote-video-2" class="w-100 h-100 remote-video" autoplay inline controls></video>
-          <div ref="username-2" id="username-2" class="username"></div>
-        </div> -->
-        <!-- <div class="remote-video-container border border-primary" style="width: 20%;">
-          <video ref="remote-video-3" id="remote-video-3" class="w-100 h-100 remote-video" autoplay inline controls></video>
-          <div ref="username-3" id="username-3" class="username"></div>
-        </div>
-        <div class="remote-video-container border border-primary" style="width: 20%;">
-          <video ref="remote-video-4" id="remote-video-4" class="w-100 h-100 remote-video" autoplay inline controls></video>
-          <div ref="username-4" id="username-4" class="username"></div>
-        </div> -->
       </div> 
     </section>
 	
@@ -89,7 +79,7 @@
   let consumers = {} // key off the audioPid
   
 
-  const socket = io.connect(`http://172.233.24.100:3031`);
+  const socket = io.connect(`http://172.16.2.210:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });
@@ -208,6 +198,9 @@
   const state_feed = useTemplateRef("state-feed");
   const start_feed = useTemplateRef("start-feed");
 
+  const startScreenSharing_button = useTemplateRef("screenEnable");
+  const stopScreenSharing_button = useTemplateRef("screenStop");
+
   let audioEnable = ref(true);
   let videoEnable = ref(true);
 
@@ -261,6 +254,49 @@
     }
   }
 
+  let screenTransport = null;
+  let localScreenSharing = null;
+  let screenVideoProducer = null;
+
+  const enableScreenSharing = async () => {
+    console.log("Open local screen");
+    try{
+      localScreenSharing = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { max: 1280 },
+          height: { max: 720 },
+          frameRate: { max: 15 },
+          displaySurface: "monitor" 
+        },
+        audio: true,
+      });
+
+      if(localScreenSharing){
+        stopScreenSharing_button.value.disabled = true;
+        await sendScreenSharing();
+      }
+
+    }catch(err){
+      console.log("Some error!");
+      console.log(err);
+    }
+  }
+
+  const sendScreenSharing = async () => {
+    console.log("Sending screen sharing!");
+    screenTransport = await createProduceTransport(socket, device, true);
+    console.log("Have producer transport for screeen! Time to produce!");
+    
+    const producers = await createProducer(localScreenSharing, screenTransport, true);
+    screenVideoProducer = producers.videoProducer;
+
+    console.log(screenVideoProducer);
+  }
+
+  const stopScreenSharing = () => {
+
+  }
+
   // ao enviar uma perguna habilita camera/audio
   const requestPromotion = () => {
     console.log("Request promotion to speak!");
@@ -281,6 +317,7 @@
     console.log(producers);
     
     state_feed.value.innerHTML = "ON!";
+    startScreenSharing_button.value.disabled = false;
   }
 
   //Pro criador da sala
