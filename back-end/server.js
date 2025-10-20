@@ -108,6 +108,12 @@ io.on('connect', socket => {
        
         console.log('videopid: ', videoPidsToCreate);
 
+        const screenVideoPidsToCreate = client.room.currentProducers
+            .map(p => p?.producer?.videoScreen?.id)
+            .filter(id => !!id);
+
+        console.log("screenVideoPid: ", screenVideoPidsToCreate);
+
         // find the username and make and array with matching indices
         // for audioPids/videoPids
         const associatedUserNames = client.room.currentProducers
@@ -122,6 +128,7 @@ io.on('connect', socket => {
             roomCreator,
             audioPidsToCreate,
             videoPidsToCreate,
+            screenVideoPidsToCreate,
             associatedUserNames
         }) 
     });
@@ -131,14 +138,24 @@ io.on('connect', socket => {
         let clientTransportParams;
         if(type == 'producer'){
             //run a client, wiich is part of our client class
-            clientTransportParams = await client.addTransport(type, null, null, screen);
+            clientTransportParams = await client.addTransport(type, null, null, null, screen);
         }else if(type == 'consumer'){
+            console.log("No esta aqui??")
             // we have 1 tranposrt per client we are streaming from
             // each transport will have an audio and a video producer/consumer
             // we know the audioPid (beacuse it came from dominantSpeaker)
             const producingClient = client.room.clients.find(c => c?.producer?.audio?.id === audioPid);
             const videoPid = producingClient?.producer?.video?.id;
-            clientTransportParams = await client.addTransport(type, audioPid, videoPid);
+            const videoScreenPid = producingClient?.producer?.videoScreen?.id;
+
+            // verifica se já há transport existente para esse consumer
+            const existing = client.downstreamTransport.find(t => t.associatedAudioPid === audioPid);
+            if(existing){
+                clientTransportParams = await client.updateTransport(audioPid, videoPid, videoScreenPid);
+
+            }else{
+                clientTransportParams = await client.addTransport(type, audioPid, videoPid, videoScreenPid);
+            } 
         }
 
         ackCb(clientTransportParams);
@@ -206,13 +223,18 @@ io.on('connect', socket => {
         // newTransportByPeer is an object, each property is a socket.id that
         // has transports to make. They are in an array, by pid
         for(const [socketId, audioPidsToCreate] of Object.entries(newTransportByPeer)){
-            console.log("AUDIO PIDS TO CREATE", audioPidsToCreate);
+            console.log("PIDS TO CREATE", audioPidsToCreate);
             // we have the audioPidsToCreate this socket needs to create
             // map the video pids and the username
             const videoPidsToCreate = audioPidsToCreate.map(aPid => {
                 const producerClient = client.room.clients.find(c => c?.producer?.audio?.id === aPid);
                 return producerClient?.producer?.video?.id;
             });
+
+            const screenVideoPidsToCreate = audioPidsToCreate.map(aPid => {
+                const producerClient = client.room.clients.find(c => c?.producer?.audio?.id === aPid);
+                return producerClient?.producer?.videoScreen?.id;
+            })
 
             const associatedUserNames = audioPidsToCreate.map(aPid => {
                 const producerClient = client.room.clients.find(c => c?.producer?.audio?.id === aPid);
@@ -223,6 +245,7 @@ io.on('connect', socket => {
                 routerRtpCapabilities: client.room.router.rtpCapabilities,
                 audioPidsToCreate,
                 videoPidsToCreate,
+                screenVideoPidsToCreate,
                 associatedUserNames,
             });
         }
@@ -254,7 +277,8 @@ io.on('connect', socket => {
                         return t.associatedAudioPid === pid;
                     }else if(kind === 'video'){
                         return t.associatedVideoPid === pid;
-                    }
+                    }else if(kind === 'videoScreen')
+                        return t.associatedVideoScreenPid === pid;
                 })
 
                 if(!downStreamTransport){
@@ -271,6 +295,8 @@ io.on('connect', socket => {
                 
                 // add this newConsumer to the client
                 client.addConsumer(kind, newConsumer, downStreamTransport);
+                console.log("==== client to debug!! ====");
+                
                 // respond with the params
                 const clientParams = {
                     producerId: pid,

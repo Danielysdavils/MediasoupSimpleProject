@@ -32,7 +32,7 @@ const createConsumer = (consumerTransport, pid, device, socket, kind, slot) => {
             const { track } = consumer;
             // add track events
             // unpause
-            await socket.emitWithAck('unpauseConsumer', {pid, kind});
+            await socket.emitWithAck('unpauseConsumer', {pid, kind}); // é boa pártica mandar track como pause, entao aqui despause
             resolve(consumer);
         }
     });

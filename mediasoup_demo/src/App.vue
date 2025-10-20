@@ -42,8 +42,11 @@
 		<section style="height: 30%; margin-top:10px;">
       <h2>Dominant Speaker</h2>
       <div id="current-speaker" style="text-align: center;">
-        <div class="current-video-container" style="width: 100%; height: 400px; margin: 10;">
-          <video style="width:100%; height:100%" id="remote-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline controls></video>
+        <div class="current-video-container" style="width: 100%; margin: 10;">
+          <div style="display:flex; height: 400px;">
+            <video style="width:100%; height:100%" id="remote-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline controls></video>
+            <video style="width:100%; height:100%" id="remoteScreen-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline controls></video>
+          </div>
           <div id="username-0" class="username"></div>
         </div>
 		  </div>
@@ -79,7 +82,7 @@
   let consumers = {} // key off the audioPid
   
 
-  const socket = io.connect(`http://172.16.2.210:3031`);
+  const socket = io.connect(`http://localhost:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });
@@ -109,6 +112,7 @@
         const slotIndex = layoutStore.layoutMap[userName] ?? layoutStore.incrementSlot(); 
 
         const remoteVideo = document.getElementById(`remote-video-${slotIndex}`);
+        const remoteScreen = document.getElementById(`remoteScreen-video-${slotIndex}`);
         const remoteVideoUserName = document.getElementById(`username-${slotIndex}`);
 
         console.log("remote-video", remoteVideo);
@@ -117,6 +121,9 @@
 
         if (remoteVideo && consumerForThisSlot.combineStream)
           remoteVideo.srcObject = consumerForThisSlot.combineStream;
+
+        if(remoteScreen && consumerForThisSlot.screenStream)
+          remoteScreen.srcObject = consumerForThisSlot.screenStream;
 
         if (remoteVideoUserName)
           remoteVideoUserName.innerHTML = userName;

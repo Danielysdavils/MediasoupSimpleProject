@@ -30,18 +30,22 @@ const updateActiveSpeaker = (room, io) => {
             );
 
             const downsStreamScreen = client.downstreamTransport.find(
-                t => t?.associatedVideoPid === screenPid
+                t => t?.associatedVideoScreenPid === screenPid
             );
 
             if(downstreamWebcam){
                 downstreamWebcam.audio.resume(); // audio sempre obrigatorio para webcam
                 downstreamWebcam.video?.resume(); // video opcional
-            }else if(aPid) newSpeakersToThisClient.push(aPid);
+            }else{
+                if(aPid) newSpeakersToThisClient.push(aPid);
+            }
 
             if(downsStreamScreen){
-                downsStreamScreen.audio?.resume(); // audio opcional para compartilhamento de tela
-                downsStreamScreen.video.resume(); // video obrigatorio
-            }else if(screenPid) newSpeakersToThisClient.push(screenPid);            
+                downsStreamScreen.videoScreen?.resume(); // video obrigatorio
+
+            }else if(!downsStreamScreen && downstreamWebcam){
+                if(screenPid) newSpeakersToThisClient.push(aPid);
+            }            
         }
 
         if (newSpeakersToThisClient.length) {

@@ -27,7 +27,7 @@ class Client{
         this.room = null // this will be a Room object
     }
 
-    addTransport(type, audioPid = null, videoPid = null, screen = false,){
+    addTransport(type, audioPid = null, videoPid = null, videoScreenPid = null, screen = false){
         return new Promise(async (resolve, reject) => {
             const { listenIps, initialAvailableOutgoinBitrate, maxIncomingBitrate } = config.webRtcTransport;
             const transport = await this.room.router.createWebRtcTransport({
@@ -59,6 +59,8 @@ class Client{
 
             if(type === 'producer'){
                 // set the new transport to the clients's upstreamTransport
+                /* para producer vamos manter 2 transport separados,
+                 1 para a/v da camera e 1 para a/v da tela */
                 this.upstreamTransport.push({
                     screen, //if this tranport is for desktop screen
                     transport
@@ -66,16 +68,44 @@ class Client{
                 
             }else if(type === 'consumer'){
                 // add the new transport and the 2 pids, to downstream transport 
+                /*  vamos manter 1 transport para consumir a/v da camera 
+                    e a/v do compartilhamento de tela. Esto pq para consumer é mais eficiente assim
+                */
                 this.downstreamTransport.push({
                     type,
-                    transport, // will handle both audio and video
-                    screen,
+                    transport, 
                     associatedVideoPid: videoPid,
-                    associatedAudioPid: audioPid
+                    associatedAudioPid: audioPid,
+                    associatedVideoScreenPid: videoScreenPid,
                 });
             }
             resolve(clientTransportParams);
         });
+    }
+
+    updateTransport(audioPid, videoPid = null, videoScreenPid = null){
+        return new Promise((resolve, reject) => {
+            const downstreamTransport = this.downstreamTransport.find(t => t.associatedAudioPid === audioPid);
+            if(!downstreamTransport){
+                console.log(`[updateTransport] Nenhum transport encontrado para audioPid=${audioPid}`);
+                return resolve(null)
+            }
+
+            if(videoPid) downstreamTransport.associatedVideoPid = videoPid;
+            if(videoScreenPid) downstreamTransport.associatedVideoScreenPid = videoScreenPid;
+        
+            console.log(`[updateTransport] Transport atualizado para audioPid=${audioPid}:`, {
+                videoPid,
+                videoScreenPid
+            });
+            
+            resolve({
+                id: downstreamTransport.transport.id,
+                iceParameters: downstreamTransport.transport.iceParameters,
+                iceCandidates: downstreamTransport.transport.iceCandidates,
+                dtlsParameters: downstreamTransport.transport.dtlsParameters,
+            });
+        })
     }
 
     addProducer(kind, newProducer, screen){
