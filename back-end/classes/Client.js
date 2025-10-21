@@ -27,7 +27,7 @@ class Client{
         this.room = null // this will be a Room object
     }
 
-    addTransport(type, audioPid = null, videoPid = null, videoScreenPid = null, screen = false){
+    addTransport(type, audioPid = null, videoPid = null, videoScreenPid = null, audioScreenPid = null, screen = false){
         return new Promise(async (resolve, reject) => {
             const { listenIps, initialAvailableOutgoinBitrate, maxIncomingBitrate } = config.webRtcTransport;
             const transport = await this.room.router.createWebRtcTransport({
@@ -77,13 +77,14 @@ class Client{
                     associatedVideoPid: videoPid,
                     associatedAudioPid: audioPid,
                     associatedVideoScreenPid: videoScreenPid,
+                    associatedAudioScreenPid: audioScreenPid
                 });
             }
             resolve(clientTransportParams);
         });
     }
 
-    updateTransport(audioPid, videoPid = null, videoScreenPid = null){
+    updateTransport(audioPid, videoPid = null, videoScreenPid = null, audioScreenPid = null){
         return new Promise((resolve, reject) => {
             const downstreamTransport = this.downstreamTransport.find(t => t.associatedAudioPid === audioPid);
             if(!downstreamTransport){
@@ -93,10 +94,12 @@ class Client{
 
             if(videoPid) downstreamTransport.associatedVideoPid = videoPid;
             if(videoScreenPid) downstreamTransport.associatedVideoScreenPid = videoScreenPid;
+            if(audioScreenPid) downstreamTransport.associatedAudioScreenPid = audioScreenPid;
         
             console.log(`[updateTransport] Transport atualizado para audioPid=${audioPid}:`, {
                 videoPid,
-                videoScreenPid
+                videoScreenPid,
+                audioScreenPid
             });
             
             resolve({

@@ -23,8 +23,10 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
         where n is te number of peers
 */
     consumeData.audioPidsToCreate.forEach(async(audioPid, i) => {
+        console.log("consumedata ", consumeData);
         const videoPid = consumeData.videoPidsToCreate[i]; // pode ser undefined se só tiver audio!
         const screenVideoPid = consumeData.screenVideoPidsToCreate[i]; // caso alum producer esteja compartilhando tela
+        const screenAuidoPid = consumeData.screenAudioPidsToCreate[i];
         const userName = consumeData.associatedUserNames[i];
 
         // Aqui verifico se é criador, caso sim uso slot 0, caso nao procuro o seguinte slot
@@ -56,10 +58,8 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
             const audioConsumer = audioPid ? await createConsumer(consumerTransport, audioPid, device, socket, 'audio', i) : null;
             const videoConsumer = videoPid ? await createConsumer(consumerTransport, videoPid, device, socket, 'video', i) : null;
            
-
             console.log("audioConsumer:", audioConsumer);
             console.log("videoConsumer:", videoConsumer);
-            
             
             const tracks = [];
             if(audioConsumer?.track) tracks.push(audioConsumer.track);
@@ -74,7 +74,8 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
                 consumerTransport,
                 audioConsumer,
                 videoConsumer,
-                screenVideoConsumer: null
+                screenVideoConsumer: null,
+                screenAudioConsumer: null
             }
 
             existingConsumer = consumers[audioPid]; // ??? verificar depois
@@ -83,13 +84,17 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
         // caso já exista, só adiciono novo stream (desktop)
         if(screenVideoPid && !existingConsumer?.screenVideoConsumer){
             const screenVideoConsumer = await createConsumer(consumerTransport, screenVideoPid, device, socket, 'videoScreen', i);
+            const screenAudioConsumer = screenAuidoPid ? await createConsumer(consumerTransport, screenAuidoPid, device, socket, 'audioScreen', i) : null;
             console.log("screenVideoConsumer: ", screenVideoConsumer);
 
-            const screenStream = screenVideoConsumer?.track // (*) ajustar para mandar o audio tambem
-                ? new MediaStream([screenVideoConsumer.track])
-                : null; 
-
+            const tracks = [];
+            if(screenVideoConsumer?.track) tracks.push(screenVideoConsumer.track);
+            if(screenAudioConsumer?.track) tracks.push(screenAudioConsumer.track);
+            const screenStream = new MediaStream(tracks);
+            
             consumers[audioPid].screenVideoConsumer = screenVideoConsumer;
+            consumers[audioPid].screenAudioConsumer = screenAudioConsumer;
+
             consumers[audioPid].screenStream = screenStream;
         }
 

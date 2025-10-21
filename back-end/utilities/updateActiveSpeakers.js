@@ -9,9 +9,10 @@ const updateActiveSpeaker = (room, io) => {
         const newSpeakersToThisClient = [];
 
         for (const p of room.currentProducers) {
-            const aPid = p.producer.audio?.id;
-            const screenPid = p.producer.videoScreen?.id;
-            console.log("SCREEN PID? ", screenPid);
+            const aPid = p.producer?.audio?.id;
+    
+            const vScreenPid = p.producer?.videoScreen?.id;
+            const aScreenPid = p.producer?.audioScreen?.id;
 
             if (client?.producer?.audio && client.producer.audio.id === aPid) {
                 client.producer.audio.resume();
@@ -21,34 +22,42 @@ const updateActiveSpeaker = (room, io) => {
                 client?.producer?.videoScreen?.resume();
             }
 
-            /*
-                Aqui podemos ter dois downstreamTransports, um para a tela e outro para a webcam.
-                Por isso precisamos filtrar e despausar conforme o caso
-            */
-            const downstreamWebcam = client.downstreamTransport.find(
+            const downstream = client.downstreamTransport.find(
                 t => t?.associatedAudioPid === aPid  
             );
 
-            const downsStreamScreen = client.downstreamTransport.find(
-                t => t?.associatedVideoScreenPid === screenPid
+            const downsstreamScreen_v = client.downstreamTransport.find(
+                t => t?.associatedVideoScreenPid === vScreenPid
             );
 
-            if(downstreamWebcam){
-                downstreamWebcam.audio.resume(); // audio sempre obrigatorio para webcam
-                downstreamWebcam.video?.resume(); // video opcional
-            }else{
-                if(aPid) newSpeakersToThisClient.push(aPid);
+            const downsstreamScreen_a = client.downstreamTransport.find(
+                t => t?.associatedAudioScreenPid === aScreenPid
+            )
+
+            if(downstream){
+                downstream.audio.resume(); 
+                downstream.video?.resume();
+
+            }else if(!downstream && aPid){
+                newSpeakersToThisClient.push(aPid);
             }
 
-            if(downsStreamScreen){
-                downsStreamScreen.videoScreen?.resume(); // video obrigatorio
+            if(downsstreamScreen_v && aPid){
+                downsstreamScreen_v.videoScreen?.resume(); 
 
-            }else if(!downsStreamScreen && downstreamWebcam){
-                if(screenPid) newSpeakersToThisClient.push(aPid);
-            }            
+            }else if(!downsstreamScreen_v && vScreenPid && aPid){
+                newSpeakersToThisClient.push(aPid);
+            }  
+            
+            if(downsstreamScreen_a && aPid){
+                downsstreamScreen_a.audioScreen?.resume()
+            
+            }else if(!downsstreamScreen_a && aScreenPid && aPid){
+                newSpeakersToThisClient.push(aPid);
+            }
         }
 
-        if (newSpeakersToThisClient.length) {
+        if (newSpeakersToThisClient.length > 0) {
             newTransportByPeer[client.socket.id] = newSpeakersToThisClient;
         }
     }

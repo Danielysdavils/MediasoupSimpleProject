@@ -82,7 +82,7 @@
   let consumers = {} // key off the audioPid
   
 
-  const socket = io.connect(`http://localhost:3031`);
+  const socket = io.connect(`http://172.233.24.100:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });
@@ -264,6 +264,7 @@
   let screenTransport = null;
   let localScreenSharing = null;
   let screenVideoProducer = null;
+  let screenAudioProducer = null;
 
   const enableScreenSharing = async () => {
     console.log("Open local screen");
@@ -296,8 +297,10 @@
     
     const producers = await createProducer(localScreenSharing, screenTransport, true);
     screenVideoProducer = producers.videoProducer;
+    screenAudioProducer = producers.audioProducer;
 
     console.log(screenVideoProducer);
+    console.log(screenAudioProducer);
   }
 
   const stopScreenSharing = () => {
