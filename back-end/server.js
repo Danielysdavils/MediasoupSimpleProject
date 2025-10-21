@@ -277,6 +277,14 @@ io.on('connect', socket => {
         }
     });
 
+    // socket.on("cameraChange", typeOfChange => {
+    //     if(typeOfChange === "mute"){
+    //         client?.producer?.video?.pause();
+    //     }else{
+    //         client?.producer?.video?.resume();
+    //     }
+    // })
+
     socket.on('consumeMedia', async ({rtpCapabilities, pid, kind}, ackCb) => {
         // will run twice for every peer to consume .. once for video, one for audio
         console.log("kind: ", kind, "  pid", pid);

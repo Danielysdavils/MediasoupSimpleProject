@@ -23,6 +23,7 @@
         </div>
         <h4 ref="state-feed" class="btn btn-success">OFF</h4>
 		    <button ref="mute" @click="muteAudio" class="btn btn-success" disabled>Audio On</button>
+        <button ref="mute-camera" @click="muteCamera" class="btn btn-success" disabled>Camera On</button>
         <button ref="screenEnable" @click="enableScreenSharing" class="btn btn-success" disabled>ScreenSharing</button>
         <button ref="screenStop" @click="stopScreenSharing" class="btn btn-success" disabled>Stop ScreenSharing</button>
 		  </div>
@@ -82,7 +83,7 @@
   let consumers = {} // key off the audioPid
   
 
-  const socket = io.connect(`http://172.233.24.100:3031`);
+  const socket = io.connect(`http://localhost:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });
@@ -202,6 +203,7 @@
 
   const videoLeft_button = useTemplateRef("local-video-left");
   const mute_button = useTemplateRef("mute");
+  const mutecamera_button = useTemplateRef("mute-camera");
   const state_feed = useTemplateRef("state-feed");
   const start_feed = useTemplateRef("start-feed");
 
@@ -230,6 +232,7 @@
       }
 
       mute_button.value.disabled = !audioEnable.value;
+      mutecamera_button.value.disabled = !videoEnable.value;
     }catch(err){
       console.log("ERROR OPEN LOCALSTREAM", err);
     }
@@ -253,6 +256,8 @@
       }
 
       mute_button.value.disabled = true;
+      mutecamera_button.value.disabled = true;
+
       state_feed.value.innerHTML = "OFF!";
 
       console.log("FEED LOCAL FECHADO COM SUCESSO!");
@@ -337,6 +342,49 @@
     await sendFeed();
   }
 
+  let originalTrack = null;
+  let blackTrack = null;
+  let cameraMuted = ref(false);
+
+  const muteCamera = async () => {
+    try{
+      if(cameraMuted.value){
+      // === desmutar ===
+      let newTrack;
+      if (!originalTrack || originalTrack.readyState === "ended") {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        videoLeft_button.value.srcObject = stream;
+        newTrack = stream.getVideoTracks()[0];
+        originalTrack = newTrack;
+      } else {
+        newTrack = originalTrack;
+      }
+        await videoProducer.replaceTrack({ track: newTrack });
+        cameraMuted.value = false;
+        mutecamera_button.value.innerHTML = "Camera ON";
+        socket.emit("cameraChange", "unmute");
+       
+      }else{
+        // == muta camera ==
+        if(!originalTrack) originalTrack = videoProducer.track;
+        if(!blackTrack) blackTrack = createBlackVideoTrack();
+
+        if (blackTrack.readyState === "ended") {
+          blackTrack = createBlackVideoTrack();
+        }
+
+        await videoProducer.replaceTrack({ track: blackTrack });
+
+        cameraMuted.value = true;
+        videoLeft_button.value.srcObject = null;
+        mutecamera_button.value.innerHTML = "Camera Muted";
+        socket.emit("cameraChange", 'mute');
+      }
+    }catch(err){
+      console.log(err)
+    }
+  }
+
   const muteAudio = () => {
     // mute at the producer level, to keep the transport, and all
     // ohter mechanism in place
@@ -353,6 +401,20 @@
       socket.emit('audioChange', 'mute')
     }
   }
+
+  const createBlackVideoTrack = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext("2d");
+
+    // Pintar preto
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const stream = canvas.captureStream(5); // 5 fps para baixo consumo
+    return stream.getVideoTracks()[0];
+  };
+
 </script>
 
 <style scoped>
