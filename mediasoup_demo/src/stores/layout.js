@@ -23,5 +23,15 @@ export const useLayoutStore = defineStore('layout', () => {
     layoutMap.value[property] = value;
   }
 
-  return { creatorUserName, layoutMap, nextSlotIndex, updateCreator, incrementSlot, setLayoutMap }
+  function removeFromLayoutMap(property){
+    if(property in layoutMap.value){
+      console.log("removendo propriedade", property, "do layoutMap");
+      delete layoutMap.value[property];
+      
+      nextSlotIndex.value--;
+      if(nextSlotIndex.value <= 0) nextSlotIndex.value = 0;
+    }
+  }
+
+  return { creatorUserName, layoutMap, nextSlotIndex, updateCreator, incrementSlot, setLayoutMap, removeFromLayoutMap }
 })

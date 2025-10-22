@@ -5,6 +5,7 @@
 			  Room: <input id="room-input" placeholder="Room Name" v-model="roomId" type="text" />
 			  User:<input id="username" v-model="user" type="text" />
 			  <button @click="joinRoom" id="join-room">Join</button>
+        <button @click="leaveRoom" ref="leave-room" disabled>Leave</button>
 	  	</div>
 
 		  <!-- Buttons that setup the call/control feed -->
@@ -86,9 +87,12 @@
   const user = ref("");
   const roomId = ref("");
   const newRoom = ref(false);
+  let isProducer = ref(false);
+  let isCreator = ref(false);
 
   // FRONT BUTTONS
   const show_controls = ref(false);
+  const leave_button = useTemplateRef("leave-room");
   const videoLeft_button = useTemplateRef("local-video-left"); // para o localStream
   const mute_button = useTemplateRef("mute");
   const mutecamera_button = useTemplateRef("mute-camera");
@@ -145,6 +149,7 @@
         const remoteScreen = document.getElementById(`remoteScreen-video-${slotIndex}`);
         const remoteVideoUserName = document.getElementById(`username-${slotIndex}`);
 
+        console.log("remote-screen", remoteScreen);
         console.log("remote-video", remoteVideo);
         console.log("AID: ", aid);
         console.log("CONSUMER: ", consumerForThisSlot);
@@ -153,12 +158,10 @@
           remoteVideo.srcObject = consumerForThisSlot.combineStream;
 
         if(remoteScreen && consumerForThisSlot.screenStream){
-          console.log("remote-screen", remoteScreen);
           remoteScreen.srcObject = null;
           remoteScreen.srcObject = consumerForThisSlot.screenStream;
         }
           
-
         if (remoteVideoUserName)
           remoteVideoUserName.innerHTML = userName;
       }
@@ -173,10 +176,12 @@
       console.log("Você passou a ser producer!");
       if (!localStream) await enableFeed();
       await sendFeed();
+      isProducer.value = true;
     } 
     else if (demoted === user.value) {
       console.log("Você passou a ser consumer!");
       await stopFeed();
+      isProducer.value = false;
     } 
     else {
       console.log(`${promoted} foi promovido${demoted ? ` e ${demoted} foi rebaixado` : ''}`);
@@ -197,6 +202,29 @@
     requestTransportToConsume(consumeData, socket, device, consumers);
   });
 
+  socket.on('peerLeft', ({audioPid, userName}) => {
+    console.log(`Usuario [${audioPid}] ${userName} saiu da sala!`);
+    const slotIndex = layoutStore.layoutMap[userName];
+
+    const remoteVideo = document.getElementById(`remote-video-${slotIndex}`);
+    const remoteVideoUserName = document.getElementById(`username-${slotIndex}`);
+
+    remoteVideo.srcObject = null;
+    remoteVideoUserName.innerHTML = "";
+
+    layoutStore.removeFromLayoutMap(userName);
+
+    delete consumers[audioPid];
+  });
+
+  socket.on('roomClosed', async () => {
+    console.log("Sala encerrada pelo servidor ou criador da sala!");
+    await cleanupLocalMedia();
+    if(isProducer.value) isProducer.value = false;
+    layoutStore.removeFromLayoutMap(user.value);
+    socket.disconnect();
+  });
+
   // ======== FIM SOCKET HANDLERS =========== //
 
 
@@ -212,6 +240,8 @@
     //caso o user seja o criador, mudamos front
     newRoom.value = joinRoomResp.newRoom;
     layoutStore.updateCreator(joinRoomResp.roomCreator);
+
+    if(user.value === joinRoomResp.roomCreator) isCreator.value = true;
 
     device = new Device(); 
     await device.load({routerRtpCapabilities: joinRoomResp.routerRtpCapabilities});
@@ -233,11 +263,69 @@
     console.log("Have producer transport. Time to produce!"); // vou testart mover para o join!
 
     show_controls.value = true;
+    leave_button.value.disabled = false;
   }
 
   // sai da sala
-  const leveRoom = async () => {
+  const leaveRoom = async () => {
+    console.log("Usuário saindo da sala!");
 
+    try{
+      if(isProducer.value && !isCreator.value) socket.emit("leaveRoom", {reason: 'producerLeft'});
+      else if(isProducer.value && isCreator.value) socket.emit("leaveRoom", {reason: 'creatorLeft'});
+      else socket.emit("leaveRoom", {reason: 'consumerLeft'});
+
+      await cleanupLocalMedia();
+
+      layoutStore.removeFromLayoutMap(user.value);
+
+      socket.disconnect();
+
+      console.log("Uusário saiu com sucesso!");
+
+    }catch(err){
+      console.log("Erro ao tentar sair da sala: ", err);
+    }
+  }
+
+  const cleanupLocalMedia = async () => {
+    try{
+      // fecha todos producers do webcam/mic e limpa localStream
+      await stopFeed();
+
+      // fecha todos os producers do destop e limpa localScreenStream
+      await stopScreenSharing();
+
+      // fecha os transport's
+      if(producerTransport){
+        await producerTransport.close();
+        producerTransport = null;
+      }
+
+      if(screenTransport){
+        await screenTransport.close();
+        screenTransport = null;
+      }
+
+      // (*) temos consumerTransport - ver como deletar nos modulos
+
+      // limpa consumers
+      for(const key in consumers){
+        const c = consumers[key];
+        try { c.audioConsumer?.close(); } catch (err) { console.log("erro ao fechar audio consumer", err); }
+        try { c.videoConsumer?.close(); } catch (err) { console.log("erro ao fechar video consumer", err); }
+        try { c.screenVideoConsumer?.close(); } catch (err) { console.log("erro ao fechar screenvideo consumer", err); }
+        try { c.screenAudioConsumer?.close(); } catch (err) { console.log("erro ao fechar screenvideo consumer", err); }
+        c.consumerTransport?.close();
+        delete consumers[key];
+      }
+
+      videoLeft_button.value.srcObject = null;
+      console.log("Finish cleaning local media!");
+
+    }catch(err){
+      console.log("Error cleaning local media: ", err);
+    }
   }
 
   // guarda o localStream do usuário (camera/audio)
@@ -305,6 +393,7 @@
       mutecamera_button.value.disabled = true;
 
       state_feed.value.innerHTML = "OFF!";
+      isProducer.value = false;
 
       console.log("FEED LOCAL FECHADO COM SUCESSO!");
     }catch(err){
@@ -317,6 +406,7 @@
     start_feed.value.disabled = true;
     await enableFeed();
     await sendFeed();
+    isProducer.value = true;
   }
 
   // guarda o localScreenStream do usuário (desktop/audioDesktop)
@@ -392,17 +482,17 @@
   }
 
   // para o compartilhamento de tela, fecha producer
-  const stopScreenSharing = () => {
+  const stopScreenSharing = async () => {
     console.log("Stop screenSharing!");
 
     try{
       if(screenVideoProducer){
-        screenVideoProducer.close();
+        await screenVideoProducer.close();
         screenVideoProducer = null;
       }
 
       if(screenAudioProducer){
-        screenAudioProducer.close();
+        await screenAudioProducer.close();
         screenAudioProducer = null;
       }
 
@@ -413,6 +503,8 @@
 
       stopScreenSharing_button.value.disabled = true;
       startScreenSharing_button.value.disabled = false;
+      const remoteScreen = document.getElementById(`remoteScreen-video-0`);
+      remoteScreen.srcObject = null;
 
       console.log("screenSharing parado com sucesso!");
 
@@ -490,7 +582,6 @@
       socket.emit('audioChange', 'mute')
     }
   }
-
 
   // cria a tela preta
   const createBlackVideoTrack = () => {

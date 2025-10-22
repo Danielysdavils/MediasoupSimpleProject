@@ -22,6 +22,7 @@ const mediasoup = require("mediasoup");
 const config = require("./config/config");
 
 const updateActiveSpeaker = require("./utilities/updateActiveSpeakers")
+const cleanupClient = require("./utilities/cleanupClient")
 
 //classes
 const Client = require("./classes/Client")
@@ -397,6 +398,50 @@ io.on('connect', socket => {
             console.log("Promotion failed:", err);
             socket.emit('promotionDenied', { reason: 'serverError' });
         }
+    });
+
+    socket.on("leaveRoom", async({reason}) => {
+        console.log(`Client ${client.userName} saindo da sala`);
+
+        if(reason === 'consumerLeft'){
+            console.log("consumer saindo...")
+            cleanupClient(client);
+            // por ser só consumer não há problema em desconnectar socket
+            socket.disconnect(true);
+        }
+            
+        if(reason === 'producerLeft'){
+            let audioPid = client.producer?.audio?.id;
+
+            console.log("producer no crator saindo...");
+            console.log("com pid: ", audioPid);
+
+            cleanupClient(client);
+            // só emite notificação para outros peers se é producer
+            io.to(client.room.roomName).emit("peerLeft", {
+                audioPid: audioPid, 
+                userName: client.userName}
+            );
+        }
+
+        if(reason === 'creatorLeft'){
+            console.log("creator saindo...");
+            // É o criador da sala, remove todos os clientes da sala e remove a sala
+            if(client.userName === client.room.creator.userName){
+                for(const peer of client.room.clients){
+                    peer.socket.emit('roomClosed', {roomName: client.room.roomName});
+                    cleanupClient(peer);
+                    peer.socket.disconnect(true);
+                }
+
+                deleteRoom(client.room.roomName, io, rooms);
+                return;
+            }
+        }
+        
+        // remove o cliente da sala
+        client.room.clients = client.room.clients.filter(c => c.socket.id !== socket.id); // da para usar userName tmb
+        console.log(`Cliente ${client.userName} ${socket.id} removido da sala`);
     });
 });
 
