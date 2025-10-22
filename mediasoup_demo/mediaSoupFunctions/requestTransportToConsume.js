@@ -38,20 +38,20 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
             )
         }
 
+        // preciso chamar requestTransport para atualizar/adicionar transport's do cliente 
         const consumerTransportParams = await socket.emitWithAck('requestTransport', {
             type: 'consumer', 
             audioPid
         });
 
-        // verifica se já existe consumer para este audioPid (caso algum cliente existente só adicone um stream)
+        // verifica se já existe consumer para este audioPid (caso seja algum cliente existente, só adicono o stream)
         let existingConsumer = consumers[audioPid];
 
-        // se já existe reutiliza o transport
+        // se já existe, reutiliza o transport
         let consumerTransport = existingConsumer?.consumerTransport;
 
         if(!consumerTransport){
             // aqui, se não existe, então cria tranport novo para o consumidor (audio/video/desktop)
-            // expecting back transport params fot THIS audioPid. Meybe 5 times, meybe 0
             consumerTransport = createConsumerTransport(consumerTransportParams, device, socket, audioPid);
             
             // ajuste para validar caso tenhamos consumer: (*) só audio || audio e video
@@ -81,8 +81,16 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
             existingConsumer = consumers[audioPid]; // ??? verificar depois
         }
         
-        // caso já exista, só adiciono novo stream (desktop)
-        if(screenVideoPid && !existingConsumer?.screenVideoConsumer){
+        // aqui, caso já exista consumerTransport, só adiciona o novo stream (do desktop)
+        // mas isto com algumas verificaões importantes: 
+        //  - está o caso que começe a transmitir tela pela 1ra vez, então não tem screenVideoConsumer
+        //  - está o caso que tenha screenVideoConsumer mas deseje mudar o existente pelo novo (nova transmissao de tela)
+        //  - está o caso que o usuário tenha fechado e deseje recriar (uma vez mais, nova transmissão de tela)
+        if(screenVideoPid && (
+            !existingConsumer?.screenVideoConsumer || 
+            existingConsumer?.screenVideoConsumer.closed || 
+            existingConsumer?.screenVideoConsumer.producerId !== screenVideoPid
+        )){
             const screenVideoConsumer = await createConsumer(consumerTransport, screenVideoPid, device, socket, 'videoScreen', i);
             const screenAudioConsumer = screenAuidoPid ? await createConsumer(consumerTransport, screenAuidoPid, device, socket, 'audioScreen', i) : null;
             console.log("screenVideoConsumer: ", screenVideoConsumer);
@@ -98,7 +106,7 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
             consumers[audioPid].screenStream = screenStream;
         }
 
-        // preciso avisar que há novos consumidores
+        // preciso avisar que há novos consumidores, ou sjea, atualizar o layout
         renderLayout(consumers);
     });
 }

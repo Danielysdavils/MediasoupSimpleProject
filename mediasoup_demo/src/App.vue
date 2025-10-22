@@ -75,13 +75,42 @@
 
   const layoutStore = useLayoutStore();
 
-  let device = null;
-  let localStream = null;
-  let producerTransport = null;
-  let videoProducer = null;
-  let audioProducer = null; // THIS client's producer
-  let consumers = {} // key off the audioPid
+  // ========= GLOBAL VARIABLES ======== //
+
+  let device = null; // mediasoup device client
+  let consumers = {} // currents consumers of the room. [audioPid]:{ .. }
+  let localStream = null; // webcam video/mic audio
+  let localScreenSharing = null; // desktop video/desktop audio
   
+  // USER AND ROOM CLASS
+  const user = ref("");
+  const roomId = ref("");
+  const newRoom = ref(false);
+
+  // FRONT BUTTONS
+  const show_controls = ref(false);
+  const videoLeft_button = useTemplateRef("local-video-left"); // para o localStream
+  const mute_button = useTemplateRef("mute");
+  const mutecamera_button = useTemplateRef("mute-camera");
+  const state_feed = useTemplateRef("state-feed"); // ON/OFF
+  const start_feed = useTemplateRef("start-feed");
+  const startScreenSharing_button = useTemplateRef("screenEnable");
+  const stopScreenSharing_button = useTemplateRef("screenStop");
+  let audioEnable = ref(true); // checkbox enable audio
+  let videoEnable = ref(true); // checkbox enable video
+
+  // TRANPORTS AND PRODUCERS
+  let screenTransport = null; // transport para screenSharing
+  let producerTransport = null; // transport para webcam/mic
+  let videoProducer = null; 
+  let audioProducer = null; 
+  let screenVideoProducer = null;
+  let screenAudioProducer = null;
+
+  // ======== FIM GLOBAL VARIABLES ========= //
+  
+
+  // ========== SOCKET HANDLERS =========== //
 
   const socket = io.connect(`http://localhost:3031`);
   socket.on('connect', () => {
@@ -123,8 +152,12 @@
         if (remoteVideo && consumerForThisSlot.combineStream)
           remoteVideo.srcObject = consumerForThisSlot.combineStream;
 
-        if(remoteScreen && consumerForThisSlot.screenStream)
+        if(remoteScreen && consumerForThisSlot.screenStream){
+          console.log("remote-screen", remoteScreen);
+          remoteScreen.srcObject = null;
           remoteScreen.srcObject = consumerForThisSlot.screenStream;
+        }
+          
 
         if (remoteVideoUserName)
           remoteVideoUserName.innerHTML = userName;
@@ -164,11 +197,12 @@
     requestTransportToConsume(consumeData, socket, device, consumers);
   });
 
-  const user = ref("");
-  const roomId = ref("");
-  const show_controls = ref(false);
-  const newRoom = ref(false);
+  // ======== FIM SOCKET HANDLERS =========== //
 
+
+  // ======== ROOM FUNCTONS ================= //
+  
+  // entra na sala, cria os consumers da sala e cria producerTransport do cliente
   const joinRoom = async () => {
     console.log("Joining...");
 
@@ -201,18 +235,12 @@
     show_controls.value = true;
   }
 
-  const videoLeft_button = useTemplateRef("local-video-left");
-  const mute_button = useTemplateRef("mute");
-  const mutecamera_button = useTemplateRef("mute-camera");
-  const state_feed = useTemplateRef("state-feed");
-  const start_feed = useTemplateRef("start-feed");
+  // sai da sala
+  const leveRoom = async () => {
 
-  const startScreenSharing_button = useTemplateRef("screenEnable");
-  const stopScreenSharing_button = useTemplateRef("screenStop");
+  }
 
-  let audioEnable = ref(true);
-  let videoEnable = ref(true);
-
+  // guarda o localStream do usuário (camera/audio)
   const enableFeed = async() =>{ 
     // const mic2Id = await getMic2() // for get other audio devices! ** important for more complicated options
     try{
@@ -238,6 +266,24 @@
     }
   }
 
+  // cria producer para o localStream com o respectivo producerTransport
+  const sendFeed = async () => {
+    // create a transport for a this client's upstrea,
+    // it will handle both audio and video producers
+    //producerTransport = await createProduceTransport(socket, device);
+    //console.log("Have producer transport. Time to produce!"); // vou testart mover para o join!
+
+    // create or producers - promovido a producer || creador da sala
+    const producers = await createProducer(localStream, producerTransport);
+    audioProducer = producers.audioProducer;
+    videoProducer = producers.videoProducer;
+    console.log(producers);
+    
+    state_feed.value.innerHTML = "ON!";
+    startScreenSharing_button.value.disabled = false;
+  }
+
+  // fecha os producers e limpa localStream
   const stopFeed = async () => {
     try{
       if(audioProducer){
@@ -266,14 +312,21 @@
     }
   }
 
-  let screenTransport = null;
-  let localScreenSharing = null;
-  let screenVideoProducer = null;
-  let screenAudioProducer = null;
+  // [pro criador da sala] chama sendFeed() e enableFeed()
+  const startFeed = async () => {
+    start_feed.value.disabled = true;
+    await enableFeed();
+    await sendFeed();
+  }
 
+  // guarda o localScreenStream do usuário (desktop/audioDesktop)
   const enableScreenSharing = async () => {
-    console.log("Open local screen");
+    console.log("Init screen sharing!");
     try{
+      if(localScreenSharing){
+        stopScreenSharing();
+      }
+
       localScreenSharing = await navigator.mediaDevices.getDisplayMedia({
         video: {
           width: { max: 1280 },
@@ -284,68 +337,102 @@
         audio: true,
       });
 
-      if(localScreenSharing){
-        stopScreenSharing_button.value.disabled = true;
-        await sendScreenSharing();
+      if(!localScreenSharing){
+        console.warn("Nenhuma stream de tela encontrado!");
+        return;  
       }
 
+      await sendScreenSharing();
+
+      localScreenSharing.getVideoTracks()[0].addEventListener("ended", () => {
+        console.log("Usuário parou o compartilhamento manualmente!");
+        stopScreenSharing();
+      });
+
     }catch(err){
-      console.log("Some error!");
-      console.log(err);
+      console.log("Some error: ", err);
     }
   }
 
+  // cria novo producerTransport para o localScreenStream caso não exista, senao, usa existente 
+  // e cria producer com o respectivo producerTransport
   const sendScreenSharing = async () => {
     console.log("Sending screen sharing!");
-    screenTransport = await createProduceTransport(socket, device, true);
-    console.log("Have producer transport for screeen! Time to produce!");
+
+    // aqui é importatnte reaproveitar o transport existe.
+    //  Evita problemas de conexão e consumo desnecessário pro servidor
+    if(!screenTransport){
+      screenTransport = await createProduceTransport(socket, device, true);
+      console.log("Have screenTransport for screeen! Time to produce!");
+    }else{
+      console.log("We already have a transport, using existing!");
+    }
     
+    // importante fechar producers antigos, não há problema em recriar
+    if(screenVideoProducer){
+      screenVideoProducer.close();
+      screenVideoProducer = null;
+    }
+
+    if(screenAudioProducer){
+      screenAudioProducer.close();
+      screenAudioProducer = null;
+    }
+
     const producers = await createProducer(localScreenSharing, screenTransport, true);
     screenVideoProducer = producers.videoProducer;
     screenAudioProducer = producers.audioProducer;
 
+    stopScreenSharing_button.value.disabled = false;
+    startScreenSharing_button.value.disabled = true;
+
     console.log(screenVideoProducer);
     console.log(screenAudioProducer);
+    console.log("Producers do screenSharing criados!");
   }
 
+  // para o compartilhamento de tela, fecha producer
   const stopScreenSharing = () => {
+    console.log("Stop screenSharing!");
 
+    try{
+      if(screenVideoProducer){
+        screenVideoProducer.close();
+        screenVideoProducer = null;
+      }
+
+      if(screenAudioProducer){
+        screenAudioProducer.close();
+        screenAudioProducer = null;
+      }
+
+      if(localScreenSharing){
+        localScreenSharing.getTracks().forEach(track => track.stop());
+        localScreenSharing = null;
+      }
+
+      stopScreenSharing_button.value.disabled = true;
+      startScreenSharing_button.value.disabled = false;
+
+      console.log("screenSharing parado com sucesso!");
+
+    }catch(err){
+      console.log("Erro ao parar  screenSharing: ", err);
+    }
   }
 
-  // ao enviar uma perguna habilita camera/audio
+  // [pros ouvintes da sala] pede promoção ao servidor, ou seja, permissão para se tornar producer
   const requestPromotion = () => {
     console.log("Request promotion to speak!");
     
     socket.emitWithAck('requestPromotion', {user: user.value}); 
   }
 
-  const sendFeed = async () => {
-    // create a transport for a this client's upstrea,
-    // it will handle both audio and video producers
-    //producerTransport = await createProduceTransport(socket, device);
-    //console.log("Have producer transport. Time to produce!"); // vou testart mover para o join!
-
-    // create or producers - promovido a producer || creador da sala
-    const producers = await createProducer(localStream, producerTransport);
-    audioProducer = producers.audioProducer;
-    videoProducer = producers.videoProducer;
-    console.log(producers);
-    
-    state_feed.value.innerHTML = "ON!";
-    startScreenSharing_button.value.disabled = false;
-  }
-
-  //Pro criador da sala
-  const startFeed = async () => {
-    start_feed.value.disabled = true;
-    await enableFeed();
-    await sendFeed();
-  }
-
   let originalTrack = null;
   let blackTrack = null;
   let cameraMuted = ref(false);
 
+  // muta/desmuta a camera, substituindo o track com tela preta
   const muteCamera = async () => {
     try{
       if(cameraMuted.value){
@@ -356,6 +443,7 @@
         videoLeft_button.value.srcObject = stream;
         newTrack = stream.getVideoTracks()[0];
         originalTrack = newTrack;
+        
       } else {
         newTrack = originalTrack;
       }
@@ -385,6 +473,7 @@
     }
   }
 
+  // muta/desmuta o microfone
   const muteAudio = () => {
     // mute at the producer level, to keep the transport, and all
     // ohter mechanism in place
@@ -402,6 +491,8 @@
     }
   }
 
+
+  // cria a tela preta
   const createBlackVideoTrack = () => {
     const canvas = document.createElement("canvas");
     canvas.width = 1280;
