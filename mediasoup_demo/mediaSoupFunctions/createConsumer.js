@@ -18,12 +18,12 @@ const createConsumer = (consumerTransport, pid, device, socket, kind, slot) => {
         }else{
             const consumer = await consumerTransport.consume(consumeParams);
             console.log("consume() has finished!");
-
+            console.log("consume kind: ", kind);
             if(kind === 'video'){
                 try{
                     await consumer.setPreferredLayers({
-                        spatialLayer: 0,   // resolução mais baixa
-                        temporalLayer: 0   // frame rate mais baixo
+                        spatialLayer: 2,   // resolução mais baixa
+                        temporalLayer: 1   // frame rate mais baixo
                     });
                 }catch(err){
                     console.log("ERROR SETTING PREFERED LAYERS!", err);
