@@ -22,6 +22,12 @@ const deleteRoom = (roomName, io, rooms) => {
         // limpa cliente 
         cleanupClient(client);
 
+        // limpa os currentProducers
+        let index = client.room.currentProducers.findIndex(cp => cp.socket.id === client.socket.id);
+        if(index !== -1){
+            client.room.currentProducers.splice(index, 1);
+        }
+
         // notifica os peers se é producer
         if(isProducer && audioPid){
             console.log("emitindo para outros!");

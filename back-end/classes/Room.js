@@ -13,7 +13,7 @@ class Room{
         this.router = null;
         this.creator = creator; // client who creates the room
         this.limitProducer = 2; // max producers (sending a/v) in a room
-        this.currentProducers = [] // current producers in a room (*) i will count creator??
+        this.currentProducers = [] // current producers in a room (*) i will count creator?? yes
         this.clients = []; // clients in this room
         // an array of id's with the most recent dominant speaker firts
         //this.activeSpeakerList = [];

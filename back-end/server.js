@@ -23,6 +23,7 @@ const config = require("./config/config");
 
 const updateActiveSpeaker = require("./utilities/updateActiveSpeakers")
 const cleanupClient = require("./utilities/cleanupClient")
+const deleteRoom = require("./utilities/deleteRoom")
 
 //classes
 const Client = require("./classes/Client")
@@ -417,6 +418,14 @@ io.on('connect', socket => {
             console.log("com pid: ", audioPid);
 
             cleanupClient(client);
+
+            // precisa deletar o user do currentProducers da sala
+            let index = client.room.currentProducers.findIndex(cp => cp.socket.id === client.socket.id);
+            if(index !== -1){
+                console.log("deleting current producer of list..");
+                client.room.currentProducers.splice(index, 1);
+            }
+
             // só emite notificação para outros peers se é producer
             io.to(client.room.roomName).emit("peerLeft", {
                 audioPid: audioPid, 
@@ -429,16 +438,19 @@ io.on('connect', socket => {
             // É o criador da sala, remove todos os clientes da sala e remove a sala
             if(client.userName === client.room.creator.userName){
                 for(const peer of client.room.clients){
-                    peer.socket.emit('roomClosed', {roomName: client.room.roomName});
                     cleanupClient(peer);
+                    peer.socket.emit('roomClosed', {roomName: client.room.roomName});
                     peer.socket.disconnect(true);
                 }
 
                 deleteRoom(client.room.roomName, io, rooms);
+                console.log("=== final rooms ===", rooms);
+
                 return;
             }
         }
         
+        console.log("creator entra aqui?");
         // remove o cliente da sala
         client.room.clients = client.room.clients.filter(c => c.socket.id !== socket.id); // da para usar userName tmb
         console.log(`Cliente ${client.userName} ${socket.id} removido da sala`);

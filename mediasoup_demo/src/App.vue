@@ -4,7 +4,7 @@
       <div id="room-info">
 			  Room: <input id="room-input" placeholder="Room Name" v-model="roomId" type="text" />
 			  User:<input id="username" v-model="user" type="text" />
-			  <button @click="joinRoom" id="join-room">Join</button>
+			  <button @click="joinRoom" ref="join-room">Join</button>
         <button @click="leaveRoom" ref="leave-room" disabled>Leave</button>
 	  	</div>
 
@@ -68,7 +68,7 @@
 <script setup>
   import { io } from 'socket.io-client'
   import { Device } from 'mediasoup-client'
-  import { ref, useTemplateRef } from 'vue'
+  import { ref, useTemplateRef, nextTick } from 'vue'
   import createProduceTransport from '../mediaSoupFunctions/createProducerTranposrt';
   import createProducer from '../mediaSoupFunctions/createProducer';
   import requestTransportToConsume from '../mediaSoupFunctions/requestTransportToConsume';
@@ -93,6 +93,7 @@
   // FRONT BUTTONS
   const show_controls = ref(false);
   const leave_button = useTemplateRef("leave-room");
+  const join_button = useTemplateRef("join-room");
   const videoLeft_button = useTemplateRef("local-video-left"); // para o localStream
   const mute_button = useTemplateRef("mute");
   const mutecamera_button = useTemplateRef("mute-camera");
@@ -264,6 +265,7 @@
 
     show_controls.value = true;
     leave_button.value.disabled = false;
+    join_button.value.disabled = true;
   }
 
   // sai da sala
@@ -320,7 +322,10 @@
         delete consumers[key];
       }
 
-      videoLeft_button.value.srcObject = null;
+      console.log(consumers);
+      console.log("Reset front!");
+      resetFront();
+
       console.log("Finish cleaning local media!");
 
     }catch(err){
@@ -583,6 +588,8 @@
     }
   }
 
+  // ========= AUX FUNCTIONS ========= //
+
   // cria a tela preta
   const createBlackVideoTrack = () => {
     const canvas = document.createElement("canvas");
@@ -596,6 +603,41 @@
     const stream = canvas.captureStream(5); // 5 fps para baixo consumo
     return stream.getVideoTracks()[0];
   };
+
+  const resetFront = () => {
+    user.value = "";
+    roomId.value = "";
+    newRoom.value = false;
+    isProducer.value = false;
+    isCreator.value = false;
+
+    show_controls.value = false;
+
+    leave_button.value.disabled = true;
+    join_button.value.disabled = false;
+
+    const remoteEls = document.getElementsByClassName('remote-video');
+    for(let el of remoteEls) el.srcObject = null;
+
+    const remoteNames = document.getElementsByClassName("username");
+    for(let el of remoteNames) el.innerHTML = "";
+
+    mute_button.value.disabled = true;
+    mutecamera_button.value.disabled = true;
+
+    state_feed.value.innerHTML = "OFF!"; // ON/OFF
+    //start_feed.value.disabled = false;
+
+    startScreenSharing_button.value.disabled = true;
+    stopScreenSharing_button.value.disabled = true;
+    audioEnable.value = true; // checkbox enable audio
+    videoEnable.value = true; // checkbox enable video
+
+    nextTick();
+
+    console.log("refresh!");
+    window.location.reload(true);
+  }
 
 </script>
 
