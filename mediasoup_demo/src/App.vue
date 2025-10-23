@@ -1,7 +1,7 @@
 <template>
   <section class="container">
     <section style="height: 20%">
-      <div id="room-info">
+      <div id="room-info" style="height: 10%;">
 			  Room: <input id="room-input" placeholder="Room Name" v-model="roomId" type="text" />
 			  User:<input id="username" v-model="user" type="text" />
 			  <button @click="joinRoom" ref="join-room">Join</button>
@@ -9,7 +9,7 @@
 	  	</div>
 
 		  <!-- Buttons that setup the call/control feed -->
-	    <div id="control-buttons" class="d-none" style="display:flex; align-items: center;" v-if="show_controls">
+	    <div id="control-buttons" style="display:flex; height: 10%; align-items: center;" v-if="show_controls">
         <section style="display: flex;">
           <h4>enable audio</h4>
           <input type="checkbox" name="checkboxAudio" class="checbox-input" v-model="audioEnable" />
@@ -30,37 +30,39 @@
 		  </div>
     </section>
 
-		<!-- Small videos at top (non dominant speaker) -->
-		<section style="height: 50%;">
-      <div id="remote-media" style="display:flex;align-items: center;justify-content: center;">
-        <div class="remote-video-container border border-primary remote-speaker" style="width:20%">
-          <video ref="remote-video-1" id="remote-video-1" class="w-100 h-100 remote-video" autoplay inline></video>
-          <div ref="username-1" id="username-1" class="username"></div>
-        </div>
-      </div> 
-    </section>
-	
 		<!-- Current Speaker Video (Large Center Video) -->
-		<section style="height: 30%; margin-top:10px;">
-      <h2>Dominant Speaker</h2>
-      <div id="current-speaker" style="text-align: center;">
-        <div class="current-video-container" style="width: 100%; margin: 10;">
-          <div style="display:flex; height: 400px;">
-            <video style="width:100%; height:100%" id="remote-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline></video>
-            <video style="width:100%; height:100%" id="remoteScreen-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline></video>
+		<section style="height: 80%; display: flex; flex-direction: column; align-items: center;">
+      <section style="height: 60%; width:100%">
+        <h2>Dominant Speaker</h2>
+        <div id="current-speaker" style="text-align: center;">
+          <div class="current-video-container" style="width: 100%; margin: 10;">
+            <div style="display:flex; height: 400px;">
+              <video style="width:100%; height:100%" id="remote-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline></video>
+              <video style="width:100%; height:100%" id="remoteScreen-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline></video>
+            </div>
+            <div id="username-0" class="username"></div>
           </div>
-          <div id="username-0" class="username"></div>
         </div>
-		  </div>
+      </section>
 	
       <!-- Local Media Section (bottom left corner) -->
-      <div id="local-media" class="position-relative" style="height: 150px; margin-top:20px;">
-        <!-- Local Video Stream: whats the clients are seeing on the Left -->
-        <div class="position-absolute">
-          <video ref="local-video-left" class="local-video-left" style="border: black 1px solid; height: 100%" muted autoplay inline></video>
+      <section style="height: 40%; width:90%; display:flex; justify-content: space-between;">
+        <div style="height: 100%; display:flex; flex-direction:column;">
+          <h3>local video</h3>
+          <!-- Local Video Stream: whats the clients are seeing on the Left -->
+          <div>
+            <video ref="local-video-left" class="local-video-left" style="border: black 1px solid; height: 100%" muted autoplay inline></video>
+             <div class="username"></div>
+          </div>
         </div>
-        <h3>local video</h3>
-      </div>
+        <div style="display:flex; flex-direction:column; align-items: center;justify-content: center; height: 100%;">
+          <h3>Active speaker</h3>
+          <div class="remote-video-container border border-primary remote-speaker">
+            <video ref="remote-video-1" id="remote-video-1" class="w-100 h-100 remote-video" autoplay inline></video>
+            <div ref="username-1" id="username-1" class="username"></div>
+          </div>
+        </div> 
+      </section>
     </section>
   </section>
 </template>
@@ -678,6 +680,8 @@ body{
 
 .remote-video, .local-video-left{
   width: 150px;
+  background-color: #30333c;
+  border: solid 2px grey;
 }
 
 .container{
@@ -704,7 +708,7 @@ body{
   left: 45%;
 }
 
-#room-info, #control-buttons{
-  margin: 15px 0;
+body{
+  margin: 0px !important;
 }
 </style>
