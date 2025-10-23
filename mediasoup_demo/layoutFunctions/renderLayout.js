@@ -1,6 +1,6 @@
 import { useLayoutStore } from "@/stores/layout";
 
-const renderLayout = (consumers) => {
+const renderLayout = (consumers, currentUser) => {
     console.log("im just calling?")
     const layoutStore = useLayoutStore()
     const remoteEls = document.getElementsByClassName('remote-video');
@@ -17,11 +17,16 @@ const renderLayout = (consumers) => {
         const remoteScreen = document.getElementById(`remoteScreen-video-${slotIndex}`);
         const remoteVideoUserName = document.getElementById(`username-${slotIndex}`);
 
-        if(remoteVideo && combineStream)
+        if(remoteVideo && combineStream){
+            if(currentUser === userName) remoteVideo.muted = true;
             remoteVideo.srcObject = combineStream;
-
-        if(remoteScreen && screenStream)
+        }
+            
+        if(remoteScreen && screenStream){
+            if(currentUser === layoutStore.creatorUserName) remoteScreen.muted = true;
             remoteScreen.srcObject = screenStream;
+        }
+            
 
         if(remoteVideoUserName)
             remoteVideoUserName.innerHTML = userName;

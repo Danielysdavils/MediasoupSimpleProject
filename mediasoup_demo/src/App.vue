@@ -34,7 +34,7 @@
 		<section style="height: 50%;">
       <div id="remote-media" style="display:flex;align-items: center;justify-content: center;">
         <div class="remote-video-container border border-primary remote-speaker" style="width:20%">
-          <video ref="remote-video-1" id="remote-video-1" class="w-100 h-100 remote-video" autoplay inline controls></video>
+          <video ref="remote-video-1" id="remote-video-1" class="w-100 h-100 remote-video" autoplay inline></video>
           <div ref="username-1" id="username-1" class="username"></div>
         </div>
       </div> 
@@ -46,8 +46,8 @@
       <div id="current-speaker" style="text-align: center;">
         <div class="current-video-container" style="width: 100%; margin: 10;">
           <div style="display:flex; height: 400px;">
-            <video style="width:100%; height:100%" id="remote-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline controls></video>
-            <video style="width:100%; height:100%" id="remoteScreen-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline controls></video>
+            <video style="width:100%; height:100%" id="remote-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline></video>
+            <video style="width:100%; height:100%" id="remoteScreen-video-0" class="w-100 h-100 border border-primary remote-video" autoplay inline></video>
           </div>
           <div id="username-0" class="username"></div>
         </div>
@@ -117,11 +117,12 @@
 
   // ========== SOCKET HANDLERS =========== //
 
-  const socket = io.connect(`http://172.233.24.100:3031`);
+  const socket = io.connect(`http://localhost:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });
 
+  // Atualiza front com os novos producers da sala
   socket.on('updateActiveSpeakers', async newListOfActives => {
     console.log("== updateActiveSpeakers ==");
     console.log(newListOfActives);
@@ -155,12 +156,15 @@
         console.log("AID: ", aid);
         console.log("CONSUMER: ", consumerForThisSlot);
 
-        if (remoteVideo && consumerForThisSlot.combineStream)
+        if (remoteVideo && consumerForThisSlot.combineStream){
+          if(userName === user.value) remoteVideo.muted = true;
           remoteVideo.srcObject = consumerForThisSlot.combineStream;
-
+        }
+          
         if(remoteScreen && consumerForThisSlot.screenStream){
           remoteScreen.srcObject = null;
           remoteScreen.srcObject = consumerForThisSlot.screenStream;
+          if(isCreator.value) remoteScreen.muted = true;
         }
           
         if (remoteVideoUserName)
@@ -171,6 +175,9 @@
     }
   });
 
+  // para cliente (não criador):
+  //  - se tiver solicitação de 'promote' aceita então possa comçar a produzir
+  //  - se não tiver solicitacão aceita ou foi removido a consumer então pare de produzir
   socket.on('promoteDelta', async ({ promoted, demoted }) => {
     console.log("== promoteDelta ==", { promoted, demoted });
     if (promoted === user.value) {
@@ -189,6 +196,7 @@
     }
   });
 
+  // (*) quando professor rejeita??
   socket.on('promotionDenied', ({ reason }) => {
     if (reason === 'onlyCreator') {
       alert("Apenas o criador está ativo, não há ninguém para substituir.");
@@ -197,12 +205,14 @@
     }
   });
 
+  // atualiza lista de consumers locais e pede novos transport's para novos producers da sala
   socket.on('newProducersToConsume', consumeData => {
     console.log("== newProducersToConsume ==");
     console.log(consumeData);
-    requestTransportToConsume(consumeData, socket, device, consumers);
+    requestTransportToConsume(consumeData, socket, device, consumers, user.value);
   });
 
+  // caso algum cliente sai da sala, então atualiza front
   socket.on('peerLeft', ({audioPid, userName}) => {
     console.log(`Usuario [${audioPid}] ${userName} saiu da sala!`);
     const slotIndex = layoutStore.layoutMap[userName];
@@ -218,6 +228,7 @@
     delete consumers[audioPid];
   });
 
+  // caso a sala seja encerrada pelo servidor ou criador 
   socket.on('roomClosed', async () => {
     console.log("Sala encerrada pelo servidor ou criador da sala!");
     await cleanupLocalMedia();
@@ -229,7 +240,7 @@
   // ======== FIM SOCKET HANDLERS =========== //
 
 
-  // ======== ROOM FUNCTONS ================= //
+  // =========== ROOM FUNCTONS ================= //
   
   // entra na sala, cria os consumers da sala e cria producerTransport do cliente
   const joinRoom = async () => {
@@ -257,7 +268,7 @@
     // mapped to usernames
     // These arrays, may be empty... they may have a max of 5 indices
     console.log("request transport");
-    requestTransportToConsume(joinRoomResp, socket, device, consumers);
+    requestTransportToConsume(joinRoomResp, socket, device, consumers, user.value);
 
     //create producer transport - teste para medir eficiencia de troca!
     producerTransport = await createProduceTransport(socket, device);
@@ -290,6 +301,7 @@
     }
   }
 
+  // limpa transport's locais, limpa streams locais e limpa consumers object
   const cleanupLocalMedia = async () => {
     try{
       // fecha todos producers do webcam/mic e limpa localStream
@@ -341,7 +353,11 @@
       console.log("video:", videoEnable.value)
 
       localStream = await navigator.mediaDevices.getUserMedia({
-        video: videoEnable.value,
+        video: videoEnable.value ? {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 15, max: 20 }
+        } : false,
         audio: {
           autoGainControl: false, noiseSuppression: true, echoCancellation: false //parameters for audio quality
         }, // ** simple just for now
@@ -604,6 +620,7 @@
     return stream.getVideoTracks()[0];
   };
 
+  // limpa variáveis de controle do front e da um refresh na página
   const resetFront = () => {
     user.value = "";
     roomId.value = "";

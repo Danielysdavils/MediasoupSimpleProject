@@ -31,21 +31,27 @@ const createProducer =  async (localStream, producerTransport, screen = false) =
                         appData: { type: 'screen' }
                     });
                 }else{
+                    console.log("Estou entrando nos layers?");
                     videoProducer = await producerTransport.produce({
                         track: videoTrack,
                         encodings: [
-                            { rid: 'r0', maxBitrate: 200_000, scaleResolutionDownBy: 4}, 
-                            { rid: 'r1', maxBitrate: 800_000, scaleResolutionDownBy: 2}, // 360p-480p
-                            { rid: 'r2', maxBitrate: 2_000_000, scaleResolutionDownBy: 1}
+                            { rid: 'r0', maxBitrate: 200000, scaleResolutionDownBy: 2, scalabilityMode: "S1T3"}, 
+                            { rid: 'r1', maxBitrate: 800000, scaleResolutionDownBy: 1, scalabilityMode: "S1T3"}, // 360p-480p
+                            //{ rid: 'r2', maxBitrate: 2000000, scaleResolutionDownBy: 1, scalabilityMode: "S1T3"}
                         ],
                         codecOptions: {
                             videoGoogleStartBitrate: 1500,
-                            videoGoogleMaxBitrate: 2500,
-                            videoGoogleMinBitrate: 500
+                            //videoGoogleMaxBitrate: 2500,
+                            //videoGoogleMinBitrate: 500
                         },
                         appData: {type: 'camera'}
                     });
-                console.log("Produce running on video!");
+
+                    console.log("Produce running on video!");
+                }
+                if(videoProducer){
+                    console.log("videoProducer: ", videoProducer);
+                  
                 }
             }
             

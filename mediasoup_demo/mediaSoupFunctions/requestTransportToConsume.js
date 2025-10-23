@@ -4,7 +4,7 @@ import renderLayout from "../layoutFunctions/renderLayout";
 
 import { useLayoutStore } from "@/stores/layout";
 
-const requestTransportToConsume = (consumeData, socket, device, consumers) => {
+const requestTransportToConsume = (consumeData, socket, device, consumers, currentUser) => {
     const layoutStore = useLayoutStore()
 /*
     How many transport? One for each consumer?
@@ -107,7 +107,7 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
         }
 
         // preciso avisar que há novos consumidores, ou sjea, atualizar o layout
-        renderLayout(consumers);
+        renderLayout(consumers, currentUser);
     });
 }
 

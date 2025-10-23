@@ -42,11 +42,9 @@ class Client{
                 // maxIncomingBitrate limit the incoming bandwidth from this transport
                 try{
                     await transport.setMaxIncomingBitrate(maxIncomingBitrate);
-                    //incrementa gradualmente
-                    setTimeout(() => {
-                        transport.setMaxIncomingBitrate(10_000_000).catch(() => {});
-                    }, 3000);
-
+                    setTimeout(async () => {
+                        await transport.setMaxIncomingBitrate(maxIncomingBitrate);
+                    }, 5000);
                 }catch(err){
                     console.log("ERR SENDING BITRATE");
                     console.log(err);

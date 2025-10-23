@@ -2,6 +2,7 @@ const createConsumer = (consumerTransport, pid, device, socket, kind, slot) => {
     return new Promise(async(resolve, reject) => {
         // consume from the basic, emit the consumeMedia event, we take
         // the params we get back, and run consume(). That gives us or track
+        console.log("device tem suporte rids? ", device.rtpCapabilities);
         const consumeParams = await socket.emitWithAck('consumeMedia', {rtpCapabilities: device.rtpCapabilities, pid, kind});
         console.log(consumeParams);
         if(consumeParams === 'noTransport'){
@@ -17,8 +18,12 @@ const createConsumer = (consumerTransport, pid, device, socket, kind, slot) => {
             resolve();
         }else{
             const consumer = await consumerTransport.consume(consumeParams);
+            console.log("Consumer: ", consumer);
+            console.log("Consumer type: ", consumer.type);
+            console.log("Consumer rtpParameters: ", consumer.rtpParameters.codecs)
             console.log("consume() has finished!");
             console.log("consume kind: ", kind);
+            
             if(kind === 'video'){
                 try{
                     await consumer.setPreferredLayers({

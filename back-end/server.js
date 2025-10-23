@@ -9,8 +9,8 @@ const app = express();
 app.use(express.static('public'));
 
 //get the keys we made with mkcert
-const key = fs.readFileSync('./config/cert.key')
-const cert = fs.readFileSync('./config/cert.crt')
+const key = fs.readFileSync('./config/localhost+2-key.pem')
+const cert = fs.readFileSync('./config/localhost+2.pem')
 const options = { key, cert }
 
 //use those keys with the https module to have https
@@ -319,7 +319,8 @@ io.on('connect', socket => {
                 const newConsumer = await downStreamTransport.transport.consume({
                     producerId: pid,
                     rtpCapabilities,
-                    paused: true
+                    paused: true,
+                    type: 'simulcast'
                 });
                 
                 // add this newConsumer to the client
@@ -457,5 +458,7 @@ io.on('connect', socket => {
     });
 });
 
-httpServer.listen(config.port);
+httpServer.listen(config.port, () => {
+    console.log(`HTTPS server running on port ${config.port}`)
+});
 
