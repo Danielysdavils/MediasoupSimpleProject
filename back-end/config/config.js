@@ -56,16 +56,16 @@ const config = {
     webRtcTransport: {
         listenIps: [
             {
-                ip: '127.0.0.1', // '172.233.24.100', //local: 127.0.0.1
-                aouncedIp: null // '172.233.24.100' // replace by public address
+                ip: '172.16.2.210',  // '172.233.24.100', //local: 127.0.0.1
+                aouncedIp: '172.16.2.210' // '172.233.24.100' // replace by public address
                 //anouncedIp: serverIp
             }
         ],
         // For a typical video stream with HD quality, you might set maxIncomingBitrate
         // around 5Mbps (5000 kbps) to balance quality and bandwidth
         // 4k Ultra HD: 15bps to 25 Mbps
-        maxIncomingBitrate: 1500000, // 5000000, // 5 Mbps, default is INF
-        initialAvailableOutgoinBitrate: 1000000 // 5 Mbps, default is 600000
+        maxIncomingBitrate: 5000000, // 5000000, // 5 Mbps, default is INF
+        initialAvailableOutgoinBitrate: 5000000 // 5 Mbps, default is 600000
     }
 }
 

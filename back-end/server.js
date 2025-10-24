@@ -9,9 +9,9 @@ const app = express();
 app.use(express.static('public'));
 
 //get the keys we made with mkcert
-const key = fs.readFileSync('./config/localhost+2-key.pem')
-const cert = fs.readFileSync('./config/localhost+2.pem')
-const options = { key, cert }
+//const key = fs.readFileSync('./config/localhost+2-key.pem')
+//const cert = fs.readFileSync('./config/localhost+2.pem')
+//const options = { key, cert }
 
 //use those keys with the https module to have https
 const socketio = require("socket.io");

@@ -119,7 +119,7 @@
 
   // ========== SOCKET HANDLERS =========== //
 
-  const socket = io.connect(`http://localhost:3031`);
+  const socket = io.connect(`http://172.16.2.210:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });
@@ -353,12 +353,12 @@
     try{
       console.log("audio:", audioEnable.value)
       console.log("video:", videoEnable.value)
-
+      // width: 1280, heigth: 720, framerate: {ideal: 30, max: 60}
       localStream = await navigator.mediaDevices.getUserMedia({
         video: videoEnable.value ? {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 15, max: 20 }
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30, max: 60 }
         } : false,
         audio: {
           autoGainControl: false, noiseSuppression: true, echoCancellation: false //parameters for audio quality

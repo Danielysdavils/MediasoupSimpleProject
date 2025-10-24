@@ -36,11 +36,11 @@ const createProducer =  async (localStream, producerTransport, screen = false) =
                         track: videoTrack,
                         encodings: [
                             { rid: 'r0', maxBitrate: 200000, scaleResolutionDownBy: 2, scalabilityMode: "S1T3"}, 
-                            { rid: 'r1', maxBitrate: 800000, scaleResolutionDownBy: 1, scalabilityMode: "S1T3"}, // 360p-480p
+                            { rid: 'r1', maxBitrate: 5000000, scaleResolutionDownBy: 1, scalabilityMode: "S1T3"}, // 360p-480p
                             //{ rid: 'r2', maxBitrate: 2000000, scaleResolutionDownBy: 1, scalabilityMode: "S1T3"}
                         ],
                         codecOptions: {
-                            videoGoogleStartBitrate: 1500,
+                            videoGoogleStartBitrate: 2000,
                             //videoGoogleMaxBitrate: 2500,
                             //videoGoogleMinBitrate: 500
                         },
@@ -58,12 +58,12 @@ const createProducer =  async (localStream, producerTransport, screen = false) =
             if(audioTrack){
                 audioProducer = await producerTransport.produce({
                     track: audioTrack,
-                    codecOptions: {
-                        opusStereo: true,
-                        opusDtx: true, // desativa envio quando silêncio (menos uso de banda)
-                        opusFec: true
-                    },
-                    encodings: [{
+               //     codecOptions: {
+               //         opusStereo: true,
+               //         opusDtx: true, // desativa envio quando silêncio (menos uso de banda)
+               //         opusFec: true
+               //     },
+                encodings: [{
                         maxBitrate: 128_000, // 128 kbps para voz é ótimo
                         priority: "high"     // prioridade máxima
                     }]
