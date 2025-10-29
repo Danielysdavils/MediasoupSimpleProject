@@ -20,9 +20,12 @@ sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' /home/pi/.config/chromium
   --user-data-dir=/tmp/kiosk_profile \
   --lang=en-US \
   --accept-lang=en-US \
-  --kiosk http://localhost:5173 \
+  --kiosk http://localhost:5173 \ 
+  --unsafely-treat-insecure-origin-as-secure=http://localhost:5173 \
   --user-agent="kioskoBrowser" \
   --autoplay-policy=no-user-gesture-required \
+  --use-fake-ui-for-media-stream \
+  --use-fake-device-for-media-stream \
   --disable-features=TranslateUI,BackForwardCache,MediaEngagementBypassAutoplayPolicies \
   --enable-features=VaapiVideoDecoder,VaapiVideoEncoder \
   --use-gl=egl \

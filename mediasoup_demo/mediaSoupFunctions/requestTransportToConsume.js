@@ -89,7 +89,8 @@ const requestTransportToConsume = (consumeData, socket, device, consumers, curre
         if(screenVideoPid && (
             !existingConsumer?.screenVideoConsumer || 
             existingConsumer?.screenVideoConsumer.closed || 
-            existingConsumer?.screenVideoConsumer.producerId !== screenVideoPid
+            existingConsumer?.screenVideoConsumer.producerId === screenVideoPid ||
+            existingConsumer?.screenVideoConsumer.producerId !== screenVideoPid // (*) melhorar essas condições!!
         )){
             const screenVideoConsumer = await createConsumer(consumerTransport, screenVideoPid, device, socket, 'videoScreen', i);
             const screenAudioConsumer = screenAuidoPid ? await createConsumer(consumerTransport, screenAuidoPid, device, socket, 'audioScreen', i) : null;
