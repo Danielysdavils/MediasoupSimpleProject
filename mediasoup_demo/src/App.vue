@@ -119,7 +119,7 @@
 
   // ========== SOCKET HANDLERS =========== //
 
-  const socket = io.connect(`http://172.16.2.210:3031`);
+  const socket = io.connect(`http://localhost:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });
@@ -237,6 +237,14 @@
     if(isProducer.value) isProducer.value = false;
     layoutStore.removeFromLayoutMap(user.value);
     socket.disconnect();
+  });
+
+  socket.on('stopScreenSharing', ({userId}) => {
+    console.log(`${userId} fechou o compartilhamento de tela!`);
+    
+    let slotIndex = layoutStore.layoutMap[userId];
+    const remoteScreen = document.getElementById(`remoteScreen-video-${slotIndex}`);
+    remoteScreen.srcObject = null;
   });
 
   // ======== FIM SOCKET HANDLERS =========== //
@@ -529,6 +537,7 @@
       const remoteScreen = document.getElementById(`remoteScreen-video-0`);
       remoteScreen.srcObject = null;
 
+      socket.emit("stopScreenSharing", {userId: user.value, roomId: roomId.value}); // por enquanto usamos nome do user como Id unico
       console.log("screenSharing parado com sucesso!");
 
     }catch(err){

@@ -279,13 +279,10 @@ io.on('connect', socket => {
         }
     });
 
-    // socket.on("cameraChange", typeOfChange => {
-    //     if(typeOfChange === "mute"){
-    //         client?.producer?.video?.pause();
-    //     }else{
-    //         client?.producer?.video?.resume();
-    //     }
-    // })
+    socket.on('stopScreenSharing', ({userId, roomId}) => {
+        // roomId é o nome da sala
+        io.to(roomId).emit('stopScreenSharing', {userId});
+    });
 
     socket.on('consumeMedia', async ({rtpCapabilities, pid, kind}, ackCb) => {
         // will run twice for every peer to consume .. once for video, one for audio

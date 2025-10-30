@@ -86,6 +86,8 @@ const requestTransportToConsume = (consumeData, socket, device, consumers, curre
         //  - está o caso que começe a transmitir tela pela 1ra vez, então não tem screenVideoConsumer
         //  - está o caso que tenha screenVideoConsumer mas deseje mudar o existente pelo novo (nova transmissao de tela)
         //  - está o caso que o usuário tenha fechado e deseje recriar (uma vez mais, nova transmissão de tela)
+        // (*) ao criar screenVideoConsumer pela 1ra vez, manda 1ro videoPid e audioPid = null, então faz uma segunda chamada da função
+        // desta vez com audioPid valido, por tanto irá ter screenVideoConsumer valido, nesse caso precisa entrar na condição
         if(screenVideoPid && (
             !existingConsumer?.screenVideoConsumer || 
             existingConsumer?.screenVideoConsumer.closed || 
@@ -95,6 +97,7 @@ const requestTransportToConsume = (consumeData, socket, device, consumers, curre
             const screenVideoConsumer = await createConsumer(consumerTransport, screenVideoPid, device, socket, 'videoScreen', i);
             const screenAudioConsumer = screenAuidoPid ? await createConsumer(consumerTransport, screenAuidoPid, device, socket, 'audioScreen', i) : null;
             console.log("screenVideoConsumer: ", screenVideoConsumer);
+            console.log("screenAudioCOnsumer: ", screenAudioConsumer);
 
             const tracks = [];
             if(screenVideoConsumer?.track) tracks.push(screenVideoConsumer.track);
