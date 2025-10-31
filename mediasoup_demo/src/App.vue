@@ -119,7 +119,7 @@
 
   // ========== SOCKET HANDLERS =========== //
 
-  const socket = io.connect(`http://localhost:3031`);
+  const socket = io.connect(`http://172.16.2.210:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });
@@ -369,7 +369,7 @@
           frameRate: { ideal: 30, max: 60 }
         } : false,
         audio: {
-          autoGainControl: false, noiseSuppression: true, echoCancellation: false //parameters for audio quality
+          autoGainControl: false, noiseSuppression: true, echoCancellation: true //parameters for audio quality
         }, // ** simple just for now
       });
 
