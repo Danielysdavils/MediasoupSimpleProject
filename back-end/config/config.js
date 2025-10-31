@@ -15,12 +15,31 @@ const config = {
             'rtcp'
         ]
     },
-    routerMediaCodecs: [
+    routerMediaCodecs: [  
         {
             kind: "audio",
             mimeType: "audio/opus",
             clockRate: 48000,
-            channels: 2
+            channels: 2,
+            parameters: {
+                "maxaveragebitrate": 64000,
+                "useinbandfec": 1,
+                "usedtx": 1,
+                "stereo": 0
+
+            }
+        },
+        // {
+        //     kind: "video",
+        //     mimeType: "video/VP9",
+        //     clockRate: 90000,
+        //     parameters: { "profile-id": 2 }
+        // },
+        {
+            kind: "video",
+            mimeType: "video/VP8",
+            clockRate: 90000,
+            parameters: {}
         },
         {
             kind: "video",
@@ -32,26 +51,20 @@ const config = {
                 "profile-level-id": "42e01f",
                 "level-asymmetry-allowed": 1
             }
-        },
-        {
-            kind: "video",
-            mimeType: "video/VP8",
-            clockRate: 90000,
-            parameters: {}
         }
     ],
     webRtcTransport: {
         listenIps: [
             {
-                ip: '127.0.0.1',
-                aouncedIp: null // replace by public address
+                ip: '172.16.2.210',  // '172.233.24.100', //local: 127.0.0.1
+                aouncedIp: '172.16.2.210' // '172.233.24.100' // replace by public address
                 //anouncedIp: serverIp
             }
         ],
         // For a typical video stream with HD quality, you might set maxIncomingBitrate
         // around 5Mbps (5000 kbps) to balance quality and bandwidth
         // 4k Ultra HD: 15bps to 25 Mbps
-        maxIncomingBitrate: 5000000, // 5 Mbps, default is INF
+        maxIncomingBitrate: 5000000, // 5000000, // 5 Mbps, default is INF
         initialAvailableOutgoinBitrate: 5000000 // 5 Mbps, default is 600000
     }
 }

@@ -1,7 +1,11 @@
 import createConsumerTransport from "../mediaSoupFunctions/createConsumerTransport";
 import createConsumer from "../mediaSoupFunctions/createConsumer";
+import renderLayout from "../layoutFunctions/renderLayout";
 
-const requestTransportToConsume = (consumeData, socket, device, consumers) => {
+import { useLayoutStore } from "@/stores/layout";
+
+const requestTransportToConsume = (consumeData, socket, device, consumers, currentUser) => {
+    const layoutStore = useLayoutStore()
 /*
     How many transport? One for each consumer?
     Or one that handles all consumers?
@@ -19,58 +23,96 @@ const requestTransportToConsume = (consumeData, socket, device, consumers) => {
         where n is te number of peers
 */
     consumeData.audioPidsToCreate.forEach(async(audioPid, i) => {
+        console.log("consumedata ", consumeData);
         const videoPid = consumeData.videoPidsToCreate[i]; // pode ser undefined se só tiver audio!
+        const screenVideoPid = consumeData.screenVideoPidsToCreate[i]; // caso alum producer esteja compartilhando tela
+        const screenAuidoPid = consumeData.screenAudioPidsToCreate[i];
+        const userName = consumeData.associatedUserNames[i];
 
-        // expecting back transport params fot THIS audioPid. Meybe 5 times, meybe 0
+        // Aqui verifico se é criador, caso sim uso slot 0, caso nao procuro o seguinte slot
+        if(!(userName in layoutStore.layoutMap)){
+            console.log("CREATOR NOT HERE!");
+            layoutStore.setLayoutMap(
+                userName, 
+                (userName === layoutStore.creatorUserName) ? 0 : layoutStore.incrementSlot()
+            )
+        }
+
+        // preciso chamar requestTransport para atualizar/adicionar transport's do cliente 
         const consumerTransportParams = await socket.emitWithAck('requestTransport', {
             type: 'consumer', 
             audioPid
         });
 
-        console.log("Consumer transport params: ", consumerTransportParams);
+        // verifica se já existe consumer para este audioPid (caso seja algum cliente existente, só adicono o stream)
+        let existingConsumer = consumers[audioPid];
 
-        const consumerTransport = createConsumerTransport(consumerTransportParams, device, socket, audioPid);
-        // const [ audioConsumer, videoConsumer ] = await Promise.all([
-        //     createConsumer(consumerTransport, audioPid, device, socket, 'audio', i),
-        //     createConsumer(consumerTransport, videoPid, device, socket, 'video', i),
-        // ]);
+        // se já existe, reutiliza o transport
+        let consumerTransport = existingConsumer?.consumerTransport;
 
-        // ajuste para validar caso tenhamos consumer: (*) || só video || só audio || audio e video
-        const audioConsumer = audioPid ? await createConsumer(consumerTransport, audioPid, device, socket, 'audio', i) : null;
-        const videoConsumer = videoPid ? await createConsumer(consumerTransport, videoPid, device, socket, 'video', i) : null;
+        if(!consumerTransport){
+            // aqui, se não existe, então cria tranport novo para o consumidor (audio/video/desktop)
+            consumerTransport = createConsumerTransport(consumerTransportParams, device, socket, audioPid);
+            
+            // ajuste para validar caso tenhamos consumer: (*) só audio || audio e video
+            const audioConsumer = audioPid ? await createConsumer(consumerTransport, audioPid, device, socket, 'audio', i) : null;
+            const videoConsumer = videoPid ? await createConsumer(consumerTransport, videoPid, device, socket, 'video', i) : null;
+           
+            console.log("audioConsumer:", audioConsumer);
+            console.log("videoConsumer:", videoConsumer);
+            
+            const tracks = [];
+            if(audioConsumer?.track) tracks.push(audioConsumer.track);
+            if(videoConsumer?.track) tracks.push(videoConsumer.track);
+            const combineStream = new MediaStream(tracks);
 
-        console.log("audioConsumer:", audioConsumer);
-        console.log("videoConsumer:", videoConsumer);
-        // create a new mediaStream on the client with both tracks
-        // this is why we have gonna through all this pain!!
-        // const combineStream = new MediaStream([audioConsumer?.track, videoConsumer?.track]); // ajustado para considerar (*)
-        const tracks = [];
-        if(audioConsumer?.track) tracks.push(audioConsumer.track);
-        if(videoConsumer?.track) tracks.push(videoConsumer.track);
-        const combineStream = new MediaStream(tracks);
+            console.log("Hope this works....");
+            consumers[audioPid] = {
+                combineStream,
+                screenStream : null,
+                userName: consumeData.associatedUserNames[i],
+                consumerTransport,
+                audioConsumer,
+                videoConsumer,
+                screenVideoConsumer: null,
+                screenAudioConsumer: null
+            }
 
-        const remoteVideo = document.getElementById(`remote-video-${i}`);
-        if(remoteVideo && combineStream.getTracks().length > 0)
-            remoteVideo.srcObject = combineStream;
-
-        const remoteVideoUserName = document.getElementById(`username-${i}`);
-        if(remoteVideoUserName)
-            remoteVideoUserName.innerHTML = consumeData.associatedUserNames[i] || "Unknown";
-
-        console.log("Hope this works....");
-
-        console.log(i);
-        console.log(consumeData.associatedUserNames);
-        console.log(consumeData.associatedUserNames[i]);
-
-        consumers[audioPid] = {
-            combineStream,
-            userName: consumeData.associatedUserNames[i],
-            consumerTransport,
-            audioConsumer,
-            videoConsumer
+            existingConsumer = consumers[audioPid]; // ??? verificar depois
         }
-    })
+        
+        // aqui, caso já exista consumerTransport, só adiciona o novo stream (do desktop)
+        // mas isto com algumas verificaões importantes: 
+        //  - está o caso que começe a transmitir tela pela 1ra vez, então não tem screenVideoConsumer
+        //  - está o caso que tenha screenVideoConsumer mas deseje mudar o existente pelo novo (nova transmissao de tela)
+        //  - está o caso que o usuário tenha fechado e deseje recriar (uma vez mais, nova transmissão de tela)
+        // (*) ao criar screenVideoConsumer pela 1ra vez, manda 1ro videoPid e audioPid = null, então faz uma segunda chamada da função
+        // desta vez com audioPid valido, por tanto irá ter screenVideoConsumer valido, nesse caso precisa entrar na condição
+        if(screenVideoPid && (
+            !existingConsumer?.screenVideoConsumer || 
+            existingConsumer?.screenVideoConsumer.closed || 
+            existingConsumer?.screenVideoConsumer.producerId === screenVideoPid ||
+            existingConsumer?.screenVideoConsumer.producerId !== screenVideoPid // (*) melhorar essas condições!!
+        )){
+            const screenVideoConsumer = await createConsumer(consumerTransport, screenVideoPid, device, socket, 'videoScreen', i);
+            const screenAudioConsumer = screenAuidoPid ? await createConsumer(consumerTransport, screenAuidoPid, device, socket, 'audioScreen', i) : null;
+            console.log("screenVideoConsumer: ", screenVideoConsumer);
+            console.log("screenAudioCOnsumer: ", screenAudioConsumer);
+
+            const tracks = [];
+            if(screenVideoConsumer?.track) tracks.push(screenVideoConsumer.track);
+            if(screenAudioConsumer?.track) tracks.push(screenAudioConsumer.track);
+            const screenStream = new MediaStream(tracks);
+            
+            consumers[audioPid].screenVideoConsumer = screenVideoConsumer;
+            consumers[audioPid].screenAudioConsumer = screenAudioConsumer;
+
+            consumers[audioPid].screenStream = screenStream;
+        }
+
+        // preciso avisar que há novos consumidores, ou sjea, atualizar o layout
+        renderLayout(consumers, currentUser);
+    });
 }
 
 export default requestTransportToConsume;

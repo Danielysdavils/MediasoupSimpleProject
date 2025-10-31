@@ -9,9 +9,9 @@ const app = express();
 app.use(express.static('public'));
 
 //get the keys we made with mkcert
-const key = fs.readFileSync('./config/cert.key')
-const cert = fs.readFileSync('./config/cert.crt')
-const options = { key, cert }
+//const key = fs.readFileSync('./config/localhost+2-key.pem')
+//const cert = fs.readFileSync('./config/localhost+2.pem')
+//const options = { key, cert }
 
 //use those keys with the https module to have https
 const socketio = require("socket.io");
@@ -22,6 +22,8 @@ const mediasoup = require("mediasoup");
 const config = require("./config/config");
 
 const updateActiveSpeaker = require("./utilities/updateActiveSpeakers")
+const cleanupClient = require("./utilities/cleanupClient")
+const deleteRoom = require("./utilities/deleteRoom")
 
 //classes
 const Client = require("./classes/Client")
@@ -66,18 +68,23 @@ io.on('connect', socket => {
         let userName = obj.user;
         let roomName = obj.room;
 
-        let newRoom = false;
+        let newRoom = false; // (*) passar a propia sala para fornt
+        let roomCreator = null; // (*)
+
         client = new Client(userName, socket);
         let requestedRoom = rooms.find(room => room.roomName == roomName);
         if(!requestedRoom){
             console.log("add new room");
             newRoom = true;
+            roomCreator = userName;
             //make the new room, add a worker, add a router
             const workerToUse = await getWorker(workers);
-            requestedRoom = new Room(roomName, workerToUse);
+            requestedRoom = new Room(roomName, client, workerToUse);
             await requestedRoom.createRouter(io);
             rooms.push(requestedRoom);
-        }
+        }else
+            roomCreator = requestedRoom?.creator?.userName; 
+
         // add the room to the client
         client.room = requestedRoom;
         // add the client to the Room clients
@@ -85,57 +92,94 @@ io.on('connect', socket => {
         // add this socket to the socket room
         socket.join(client.room.roomName);
 
+        console.log("== CurrentProducers ==");
+        console.log(client.room.currentProducers);
+
         //PLACEHOLDER... 6. Eventually, we will need to get all current producers
-        //fetch de first 0-5 pids in activeSpeakerList
-        const audioPidsToCreate = client.room.activeSpeakerList.slice(0, 5);
+        // her will get the audioPids from currentProducers
+        const audioPidsToCreate = client.room.currentProducers
+            .map(p => p?.producer?.audio?.id)
+            .filter(id => !!id); // remove valores undefined ou null
+
         console.log('audiopid: ', audioPidsToCreate);
 
         // find video pid and make and array with matching indices
-        const videoPidsToCreate = audioPidsToCreate.map(aid => {
-            const producingClient = client.room.clients.find(c => c?.producer?.audio?.id === aid);
-            return producingClient?.producer?.video?.id;
-        });
+        const videoPidsToCreate = client.room.currentProducers
+            .map(p => p?.producer?.video?.id)
+            .filter(id => !!id);
+       
         console.log('videopid: ', videoPidsToCreate);
+
+        const screenVideoPidsToCreate = client.room.currentProducers
+            .map(p => p?.producer?.videoScreen?.id)
+            .filter(id => !!id);
+
+        console.log("screenVideoPid: ", screenVideoPidsToCreate);
+
+        const screenAudioPidsToCreate = client.room.currentProducers
+            .map(p => p?.producer?.audioScreen?.id)
+            .filter(id => !!id); 
+
+        console.log("screenAudioPids: ", screenAudioPidsToCreate);
 
         // find the username and make and array with matching indices
         // for audioPids/videoPids
-        const associatedUserNames = audioPidsToCreate.map(aid => {
-            const producingClient = client.room.clients.find(c => c?.producer?.audio?.id === aid);
-            return producingClient?.userName; 
-        });
+        const associatedUserNames = client.room.currentProducers
+            .map(p => p?.userName || "undefined")
+            .filter(username => !!username);
+        
+            console.log('userNames:', associatedUserNames);
 
         ackCb({
             routerRtpCapabilities: client.room.router.rtpCapabilities,
             newRoom,
+            roomCreator,
             audioPidsToCreate,
             videoPidsToCreate,
+            screenVideoPidsToCreate,
+            screenAudioPidsToCreate,
             associatedUserNames
         }) 
     });
 
-    socket.on('requestTransport', async ({ type, audioPid }, ackCb) => {
+    socket.on('requestTransport', async ({ type, audioPid, screen }, ackCb) => {
         // wheter producer or consumer, client needs params
         let clientTransportParams;
         if(type == 'producer'){
             //run a client, wiich is part of our client class
-            clientTransportParams = await client.addTransport(type);
+            clientTransportParams = await client.addTransport(type, null, null, null, null, screen);
         }else if(type == 'consumer'){
+            console.log("No esta aqui??")
             // we have 1 tranposrt per client we are streaming from
             // each transport will have an audio and a video producer/consumer
             // we know the audioPid (beacuse it came from dominantSpeaker)
             const producingClient = client.room.clients.find(c => c?.producer?.audio?.id === audioPid);
             const videoPid = producingClient?.producer?.video?.id;
-            clientTransportParams = await client.addTransport(type, audioPid, videoPid);
+            const videoScreenPid = producingClient?.producer?.videoScreen?.id;
+            const audioScreenPid = producingClient?.producer?.audioScreen?.id;
+
+            console.log("FOR TESTING AUDIOSCREENPID: ", audioScreenPid)
+
+            // verifica se já há transport existente para esse consumer
+            const existing = client.downstreamTransport.find(t => t.associatedAudioPid === audioPid);
+            if(existing){
+                clientTransportParams = await client.updateTransport(audioPid, videoPid, videoScreenPid, audioScreenPid);
+
+            }else{
+                clientTransportParams = await client.addTransport(type, audioPid, videoPid, videoScreenPid, audioScreenPid);
+            } 
         }
 
         ackCb(clientTransportParams);
     });
 
-    socket.on('connectTransport', async ({dtlsParameters, type, audioPid}, ackCb) => {
+    socket.on('connectTransport', async ({dtlsParameters, type, audioPid, screen}, ackCb) => {
         if(type === 'producer'){
             try{
-                await client.upstreamTransport.connect({ dtlsParameters });
+                const clientUpstream = client.upstreamTransport.find(ut => ut.screen === screen);
+                await clientUpstream.transport.connect({ dtlsParameters });
                 ackCb('success');
+
             }catch(err){
                 console.log(err + "in connectTransport");
                 ackCb('error');
@@ -156,36 +200,60 @@ io.on('connect', socket => {
         }
     });
 
-    socket.on('startProducing', async ({ kind, rtpParameters }, ackCb) => {
+    socket.on('startProducing', async ({ kind, rtpParameters, screen }, ackCb) => {
         // create a producer with the rtpParameters we were sent
+        console.log("START PRODUCING FOR SCREEN FOR KIND: ", kind, "and screen? ", screen);
         try{
-            const newProducer = await client.upstreamTransport.produce({kind, rtpParameters});
+            const clientUpstream = client.upstreamTransport.find(ut => ut.screen == screen);
+            const newProducer = await clientUpstream.transport.produce({kind, rtpParameters});
+
             // add the producer to this clien object
-            client.addProducer(kind, newProducer);
+            client.addProducer(kind, newProducer, screen);
+
             if(kind === 'audio'){
-                client.room.activeSpeakerList.push(newProducer.id);
+                //client.room.activeSpeakerList.push(newProducer.id);
+                // nao mais activeSpeakerList, mudamos para currentProducers com clients produtores
+                // aqui precisamos adicionar nosso criador da sala, que não é adicionado em requestPromote
+                // estou usando userName para diferenciar, (*) mudar para id
+                const alreadyProducing = client.room.currentProducers.some(p => p?.userName === client.userName);
+                if(!alreadyProducing){
+                    client.room.currentProducers.push(client); 
+                }
             }
+
+            console.log(client.producer)
             // the front end is waiting for the id
+            console.log("ending createProducerTransport!");
             ackCb(newProducer.id);
         }catch(err){
             console.log(err);
             ackCb(err)
         }
-
-        // PLACEHOLDER 1- if this is an audiotrack, then this is a new posible speaker
-        // PLACEHOLDER 2 - if the room is populated, then let the connected peers knows someone joins
-
+        
+        console.log("UPDATING ACTIVE SPEAKERS");
+        
         // run updateActiveSpeaker
         const newTransportByPeer = updateActiveSpeaker(client.room, io);
         // newTransportByPeer is an object, each property is a socket.id that
         // has transports to make. They are in an array, by pid
         for(const [socketId, audioPidsToCreate] of Object.entries(newTransportByPeer)){
+            console.log("PIDS TO CREATE", audioPidsToCreate);
             // we have the audioPidsToCreate this socket needs to create
             // map the video pids and the username
             const videoPidsToCreate = audioPidsToCreate.map(aPid => {
                 const producerClient = client.room.clients.find(c => c?.producer?.audio?.id === aPid);
                 return producerClient?.producer?.video?.id;
             });
+
+            const screenVideoPidsToCreate = audioPidsToCreate.map(aPid => {
+                const producerClient = client.room.clients.find(c => c?.producer?.audio?.id === aPid);
+                return producerClient?.producer?.videoScreen?.id;
+            })
+
+            const screenAudioPidsToCreate = audioPidsToCreate.map(aPid => {
+                const producerClient = client.room.clients.find(c => c?.producer?.audio?.id === aPid);
+                return producerClient?.producer?.audioScreen?.id;
+            })
 
             const associatedUserNames = audioPidsToCreate.map(aPid => {
                 const producerClient = client.room.clients.find(c => c?.producer?.audio?.id === aPid);
@@ -196,8 +264,9 @@ io.on('connect', socket => {
                 routerRtpCapabilities: client.room.router.rtpCapabilities,
                 audioPidsToCreate,
                 videoPidsToCreate,
+                screenVideoPidsToCreate,
+                screenAudioPidsToCreate,
                 associatedUserNames,
-                activeSpeakerList: client.room.activeSpeakerList.slice(0, 5)
             });
         }
     });
@@ -208,6 +277,11 @@ io.on('connect', socket => {
         }else{
             client?.producer?.audio?.resume();
         }
+    });
+
+    socket.on('stopScreenSharing', ({userId, roomId}) => {
+        // roomId é o nome da sala
+        io.to(roomId).emit('stopScreenSharing', {userId});
     });
 
     socket.on('consumeMedia', async ({rtpCapabilities, pid, kind}, ackCb) => {
@@ -222,10 +296,14 @@ io.on('connect', socket => {
             }else{
                 // we can consume!!
                 const downStreamTransport = client.downstreamTransport.find(t => {
-                    if(kind == 'audio'){
+                    if(kind === 'audio'){
                         return t.associatedAudioPid === pid;
                     }else if(kind === 'video'){
                         return t.associatedVideoPid === pid;
+                    }else if(kind === 'videoScreen'){
+                        return t.associatedVideoScreenPid === pid;
+                    }else if(kind === 'audioScreen'){
+                        return t.associatedAudioScreenPid === pid;
                     }
                 })
 
@@ -238,11 +316,15 @@ io.on('connect', socket => {
                 const newConsumer = await downStreamTransport.transport.consume({
                     producerId: pid,
                     rtpCapabilities,
-                    paused: true
+                    paused: true,
+                    type: 'simulcast'
                 });
                 
                 // add this newConsumer to the client
                 client.addConsumer(kind, newConsumer, downStreamTransport);
+                console.log("==== client to debug!! ====");
+                console.log("==user downstream==", client.downstreamTransport);
+                
                 // respond with the params
                 const clientParams = {
                     producerId: pid,
@@ -251,6 +333,7 @@ io.on('connect', socket => {
                     rtpParameters: newConsumer.rtpParameters
                 }
 
+                console.log("em algn momento retorna los parametros?");
                 ackCb(clientParams);
             }
         }catch(err){
@@ -261,12 +344,118 @@ io.on('connect', socket => {
 
     socket.on('unpauseConsumer', async({pid, kind}, ackCb) => {
         const consumerToResume = client.downstreamTransport.find(t => {
-            return t?.[kind].producerId === pid
+            return t?.[kind]?.producerId === pid
         });
-        await consumerToResume[kind].resume();
+        await consumerToResume[kind]?.resume();
         ackCb();
-    })
+    });
+
+    socket.on('requestPromotion', async(obj, ackCb) => {
+        try{
+            const room = client.room;
+            const producers = room.currentProducers;
+            const creatorName = room.creator?.userName;
+            const limit = room.limitProducer;
+
+            // Caso há espaço livre
+            if (producers.length < limit) {
+                producers.push(client); // Adiciona diretamente à lista
+                io.to(room.roomName).emit('promoteDelta', { 
+                    promoted: client.userName, 
+                    denoted: null 
+                });
+                return;
+            }
+
+            // Caso está cheio: encontrar alguém para rebaixar
+            const index = producers.findIndex(p => p?.userName && p.userName !== creatorName);
+
+            if (index === -1) {
+                console.log("Nenhum produtor disponível para rebaixar (somente o criador está na sala).");
+                socket.emit('promotionDenied', { reason: 'onlyCreator' });
+                return;
+            }
+
+            // Rebaixar o produtor encontrado
+            const demoted = producers.splice(index, 1)[0];
+            console.log("Produtor rebaixado:", demoted?.userName);
+
+            // Pausar o envio do demoted
+            if (demoted?.producer) {
+                if (demoted.producer.audio) await demoted.producer.audio.pause().catch(() => {});
+                if (demoted.producer.video) await demoted.producer.video.pause().catch(() => {});
+            }
+
+            // Adicionar o novo produtor (*) verificar no 'startProducing' 
+            producers.push(client);
+
+            io.to(room.roomName).emit('promoteDelta', {
+                promoted: client.userName,
+                demoted: demoted?.userName
+            });
+        }catch(err){
+            console.log("Promotion failed:", err);
+            socket.emit('promotionDenied', { reason: 'serverError' });
+        }
+    });
+
+    socket.on("leaveRoom", async({reason}) => {
+        console.log(`Client ${client.userName} saindo da sala`);
+
+        if(reason === 'consumerLeft'){
+            console.log("consumer saindo...")
+            cleanupClient(client);
+            // por ser só consumer não há problema em desconnectar socket
+            socket.disconnect(true);
+        }
+            
+        if(reason === 'producerLeft'){
+            let audioPid = client.producer?.audio?.id;
+
+            console.log("producer no crator saindo...");
+            console.log("com pid: ", audioPid);
+
+            cleanupClient(client);
+
+            // precisa deletar o user do currentProducers da sala
+            let index = client.room.currentProducers.findIndex(cp => cp.socket.id === client.socket.id);
+            if(index !== -1){
+                console.log("deleting current producer of list..");
+                client.room.currentProducers.splice(index, 1);
+            }
+
+            // só emite notificação para outros peers se é producer
+            io.to(client.room.roomName).emit("peerLeft", {
+                audioPid: audioPid, 
+                userName: client.userName}
+            );
+        }
+
+        if(reason === 'creatorLeft'){
+            console.log("creator saindo...");
+            // É o criador da sala, remove todos os clientes da sala e remove a sala
+            if(client.userName === client.room.creator.userName){
+                for(const peer of client.room.clients){
+                    cleanupClient(peer);
+                    peer.socket.emit('roomClosed', {roomName: client.room.roomName});
+                    peer.socket.disconnect(true);
+                }
+
+                deleteRoom(client.room.roomName, io, rooms);
+                console.log("=== final rooms ===", rooms);
+
+                return;
+            }
+        }
+        
+        console.log("creator entra aqui?");
+        // remove o cliente da sala
+        client.room.clients = client.room.clients.filter(c => c.socket.id !== socket.id); // da para usar userName tmb
+        console.log(`Cliente ${client.userName} ${socket.id} removido da sala`);
+    });
 });
 
-httpServer.listen(config.port);
+httpServer.listen(config.port, () => {
+    console.log(`HTTPS server running on port ${config.port}`)
+});
 
