@@ -51,7 +51,7 @@ const createProducer =  async (localStream, producerTransport, screen = false) =
                 }
                 if(videoProducer){
                     console.log("videoProducer: ", videoProducer);
-                  
+                    
                 }
             }
             

@@ -96,8 +96,8 @@ class Client{
             const { listenInfo } = config.webRtcTransport;
 
             const transport = await room.router.createPlainTransport({
-                listenInfo,
-                rtcpMux: false, // verificar depois!!
+                listenIp: { ip: "127.0.0.1" },
+                rtcpMux: false, 
                 comedia: true
             });
 
@@ -108,13 +108,25 @@ class Client{
                 rtcpPort: transport.rtcpTuple.localPort
             }
 
+            console.log("add transport type: ", transportType, "into: ", this.userName);
+
             this.upstreamTransport.push({
                 transportType,
                 transport
             });
 
+            console.log(`✅ PlainTransport criado para ${transportType}`);
+            console.log(`   IP: ${clientTransportParams.ip}`);
+            console.log(`   RTP port: ${clientTransportParams.port}`);
+            console.log(`   RTCP port: ${clientTransportParams.rtcpPort}`);
+
+            // 🟢 LOG DE PACOTES RTP RECEBIDOS
             transport.on('rtp', (packet) => {
-                console.log("rtp packet recebido!")
+                if (transportType.includes('video')) {
+                    console.log(`🎥 Pacote RTP de VÍDEO recebido! ${packet.length} bytes`);
+                } else if (transportType.includes('audio')) {
+                    console.log(`🎧 Pacote RTP de ÁUDIO recebido! ${packet.length} bytes`);
+                }
             });
 
             resolve(clientTransportParams);

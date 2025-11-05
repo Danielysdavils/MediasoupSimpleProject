@@ -31,14 +31,41 @@ socket.on("connect", async () => {
     plainTransportParams = await createPlainTransport(socket, room);
     console.log("PlainTransport created!");
 
-    const { ip, port, rtcpPort } = plainTransportParams;
+    const videoPlainTransportParams = plainTransportParams.videoPlainTransportParams;
+    const audioPlainTransportParams = plainTransportParams.audioPlainTransportParams;
 
-    // crio os tracks do ffmpeg
+    const video_ip = videoPlainTransportParams.ip;
+    const video_port = videoPlainTransportParams.port;
+    const video_rtcpPort = videoPlainTransportParams.rtcpPort;
+
+    const audio_ip = audioPlainTransportParams.ip;
+    const audio_port = audioPlainTransportParams.port;
+    const audio_rtcpPort = audioPlainTransportParams.rtcpPort;
+
     const ffmpegArgs = [
-        "-re",
-        "-i", videoPath,
-        "-map", "0:v:0", "-c:v", "libx264", "-b:v", "1M", "-f", "rtp", `rtp://${ip}:${port}?rtcpport=${rtcpPort}`,
-        "-map", "0:a:0", "-c:a", "aac", "-b:a", "128k", "-f", "rtp", `rtp://${ip}:${port}?rtcpport=${rtcpPort}`,
+        '-re',
+        '-v', 'info',
+        '-i', videoPath,
+
+        '-map', '0:a:0',
+        '-acodec', 'libopus',
+        '-ab', '128k',
+        '-ac', '2',
+        '-ar', '48000',
+        '-payload_type', '101',
+        '-ssrc', '11111111',
+
+        '-map', '0:v:0',
+        '-c:v', 'libvpx',
+        '-b:v', '1000k',
+        '-deadline', 'realtime',
+        '-cpu-used', '4',
+        '-pix_fmt', 'yuv420p',
+        '-payload_type', '102',
+        '-ssrc', '22222222',
+
+        '-f', 'tee',
+        `[select=a:f=rtp:ssrc=11111111:payload_type=101]rtp://${audio_ip}:${audio_port}?rtcpport=${audio_rtcpPort}|[select=v:f=rtp:ssrc=22222222:payload_type=102]rtp://${video_ip}:${video_port}?rtcpport=${video_rtcpPort}`
     ];
 
     const ffmpeg = spawn("ffmpeg", ffmpegArgs);
@@ -54,7 +81,10 @@ socket.on("connect", async () => {
         console.log(`Ffmpeg exited with code ${code}`)
     });
 
-    const producer = await createProducerTransport(socket);
+    setTimeout(async () => {
+        const producer = await createProducerTransport(socket);
+        console.log(producer);
+    }, 1000);
 });
 
 

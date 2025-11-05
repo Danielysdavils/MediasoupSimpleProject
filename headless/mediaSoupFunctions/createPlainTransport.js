@@ -1,9 +1,12 @@
 const createPlainTransport = async (socket, room) => 
     new Promise(async(resolve, reject) => {
-        const plainTransportParams = await socket.emitWithAck('requestPlainTransport', { room });
-        console.log("PlainTransportParams: ", plainTransportParams);
-    
-        resolve(plainTransportParams);
+        const videoPlainTransportParams = await socket.emitWithAck('requestPlainTransport', { room, transportType: 'videoHeadless' });
+        const audioPlainTransportParams = await socket.emitWithAck('requestPlainTransport', { room, transportType: 'audioHeadless' });
+        
+        console.log("videoPlainTransportParams: ", videoPlainTransportParams);
+        console.log("audioPlainTransportParams: ", audioPlainTransportParams);
+
+        resolve({videoPlainTransportParams, audioPlainTransportParams});
 });
 
 module.exports = createPlainTransport;

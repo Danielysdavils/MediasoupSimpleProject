@@ -173,9 +173,9 @@ io.on('connect', socket => {
         ackCb(clientTransportParams);
     });
 
-    socket.on("requestPlainTransport", async( { room }, callback ) => {
+    socket.on("requestPlainTransport", async( { room, transportType }, callback ) => {
         let roomToUse = rooms.find(r => r.roomName === room);
-        let clientTransportParams = await client.addPlainTransport(roomToUse);
+        let clientTransportParams = await client.addPlainTransport(roomToUse, transportType);
 
         console.log("Plain transport criado");
         callback(clientTransportParams);

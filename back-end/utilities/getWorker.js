@@ -3,6 +3,7 @@ function getWorker(workers){
     return new Promise(async(resolve, reject) => {
         // inside promises (in array) for each worker to calculate it's useage
         try{
+            console.log("workerss: ", workers);
             const workersLoad = workers.map(worker => {
                 // put this Promise on the array (will init as Pending)
                 return new Promise(async(resolve, reject) => {

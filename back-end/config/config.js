@@ -5,13 +5,14 @@ const config = {
     workerSettings: {
         rtcMinPort: 40000,
         rtcMaxPort: 41000,
-        logLevel: 'warn',
+        logLevel: 'debug',
         logTags: [
             'info',
             'ice',
             'dtls',
             'rtp',
             'srtp',
+            'transport',
             'rtcp'
         ]
     },
@@ -62,7 +63,7 @@ const config = {
             }
         ],
 
-        listenInfo: { protocol: "udp", ip: "127.0.0.1" },
+        listenIp: { ip: "127.0.0.1" },
         // For a typical video stream with HD quality, you might set maxIncomingBitrate
         // around 5Mbps (5000 kbps) to balance quality and bandwidth
         // 4k Ultra HD: 15bps to 25 Mbps

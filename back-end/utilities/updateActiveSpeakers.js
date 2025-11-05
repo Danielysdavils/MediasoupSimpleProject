@@ -62,7 +62,7 @@ const updateActiveSpeaker = (room, io) => {
                     newSpeakersToThisClient.push(aPid);
                 }
 
-                if((!downsstreamScreen_v && downsstreamScreen_a) || (downsstreamScreen_v && !downsstreamScreen_a && aScreenPid)){
+                if(downsstreamScreen_v && !downsstreamScreen_a && aScreenPid){
                     console.log("add (!v && a) || (v && !a)")
                     newSpeakersToThisClient.push(aPid);
                 }

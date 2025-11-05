@@ -2,27 +2,23 @@ const createProducerTransport = async (socket) => {
     return new Promise(async(resolve, reject) => {
         const rtpParametersVideo = {
             codecs: [{
-                mimeType: "video/H264",
-                payloadType: 103,
-                clockRate: 90000,
-                parameters: {
-                    'packetization-mode': 1,
-                    'profile-level-id': '42e01f'
-                }
+                mimeType: "video/vp8",
+                payloadType: 102,
+                clockRate: 90000
             }],
             encodings: [{ ssrc: 22222222 }],
-            rtcp: { cname: "CNAME" },
+            //rtcp: { cname: "CNAME" },
         };
 
         const rtpParametersAudio = {
             codecs: [{
                 mimeType: "audio/opus",
-                payloadType: 111,
+                payloadType: 101,
                 clockRate: 48000,
                 channels: 2,
             }],
             encodings: [{ ssrc: 11111111 }],
-            rtcp: { cname: "CNAME" },
+            //rtcp: { cname: "CNAME" },
         };
 
         const videoProducerId = await socket.emitWithAck("startProducing", { 
