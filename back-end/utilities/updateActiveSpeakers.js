@@ -30,34 +30,43 @@ const updateActiveSpeaker = (room, io) => {
                 t => t?.associatedVideoScreenPid === vScreenPid
             );
 
+            console.log("down v: ", downsstreamScreen_v)
+
             const downsstreamScreen_a = client.downstreamTransport.find(
                 t => t?.associatedAudioScreenPid === aScreenPid
             )
+
+            console.log("dow a: ", downsstreamScreen_a)
 
             if(downstream){
                 downstream.audio.resume(); 
                 downstream.video?.resume();
 
             }else if(!downstream && aPid){
-                console.log("add !downstream && aPID")
                 newSpeakersToThisClient.push(aPid);
             }
 
-            if(downsstreamScreen_v && aPid){
+            if(downsstreamScreen_v){
                 downsstreamScreen_v.videoScreen?.resume(); 
-
-            }else if(!downsstreamScreen_v && vScreenPid && aPid){
-                console.log("add !downstreamScreen_v && vScreenPid && aPid")
-                newSpeakersToThisClient.push(aPid);
-            }  
-            
-            if(downsstreamScreen_a && aPid){
-                downsstreamScreen_a.audioScreen?.resume()
-            
-            }else if(!downsstreamScreen_a && aScreenPid && aPid){
-                console.log("!downstreamScree_a && aScreenPid && aPid")
-                newSpeakersToThisClient.push(aPid);
             }
+
+            if(downsstreamScreen_a){
+                downsstreamScreen_a.audioScreen?.resume();
+            }
+
+           if(vScreenPid){
+                console.log("vScreenValido!");
+
+                if(!downsstreamScreen_v && !downsstreamScreen_a){
+                    console.log("add !v && !a")
+                    newSpeakersToThisClient.push(aPid);
+                }
+
+                if((!downsstreamScreen_v && downsstreamScreen_a) || (downsstreamScreen_v && !downsstreamScreen_a && aScreenPid)){
+                    console.log("add (!v && a) || (v && !a)")
+                    newSpeakersToThisClient.push(aPid);
+                }
+           }
         }
 
         if (newSpeakersToThisClient.length > 0) {
