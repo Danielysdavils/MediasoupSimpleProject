@@ -39,6 +39,7 @@ const updateActiveSpeaker = (room, io) => {
                 downstream.video?.resume();
 
             }else if(!downstream && aPid){
+                console.log("add !downstream && aPID")
                 newSpeakersToThisClient.push(aPid);
             }
 
@@ -46,6 +47,7 @@ const updateActiveSpeaker = (room, io) => {
                 downsstreamScreen_v.videoScreen?.resume(); 
 
             }else if(!downsstreamScreen_v && vScreenPid && aPid){
+                console.log("add !downstreamScreen_v && vScreenPid && aPid")
                 newSpeakersToThisClient.push(aPid);
             }  
             
@@ -53,6 +55,7 @@ const updateActiveSpeaker = (room, io) => {
                 downsstreamScreen_a.audioScreen?.resume()
             
             }else if(!downsstreamScreen_a && aScreenPid && aPid){
+                console.log("!downstreamScree_a && aScreenPid && aPid")
                 newSpeakersToThisClient.push(aPid);
             }
         }

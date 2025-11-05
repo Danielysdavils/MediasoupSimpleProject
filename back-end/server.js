@@ -51,7 +51,7 @@ const rooms = [];
 //initMediaSoup gets mediasoup ready to do its thing
 const initMediaSoup = async () => {
     workers = await createWorkers();
-    //console.log(workers);
+    console.log("Workers: ", workers);
 }
 
 initMediaSoup() // build our mediasoup server/sfu
@@ -72,7 +72,7 @@ io.on('connect', socket => {
         let roomCreator = null; // (*)
 
         client = new Client(userName, socket);
-        let requestedRoom = rooms.find(room => room.roomName == roomName);
+        let requestedRoom = rooms.find(room => room.roomName === roomName);
         if(!requestedRoom){
             console.log("add new room");
             newRoom = true;
@@ -142,12 +142,12 @@ io.on('connect', socket => {
         }) 
     });
 
-    socket.on('requestTransport', async ({ type, audioPid, screen }, ackCb) => {
+    socket.on('requestTransport', async ({ type, audioPid, transportType = 'default' }, ackCb) => {
         // wheter producer or consumer, client needs params
         let clientTransportParams;
         if(type == 'producer'){
             //run a client, wiich is part of our client class
-            clientTransportParams = await client.addTransport(type, null, null, null, null, screen);
+            clientTransportParams = await client.addTransport(type, null, null, null, null, transportType);
         }else if(type == 'consumer'){
             console.log("No esta aqui??")
             // we have 1 tranposrt per client we are streaming from
@@ -173,10 +173,18 @@ io.on('connect', socket => {
         ackCb(clientTransportParams);
     });
 
-    socket.on('connectTransport', async ({dtlsParameters, type, audioPid, screen}, ackCb) => {
+    socket.on("requestPlainTransport", async( { room }, callback ) => {
+        let roomToUse = rooms.find(r => r.roomName === room);
+        let clientTransportParams = await client.addPlainTransport(roomToUse);
+
+        console.log("Plain transport criado");
+        callback(clientTransportParams);
+    });
+
+    socket.on('connectTransport', async ({dtlsParameters, type, audioPid, transportType}, ackCb) => {
         if(type === 'producer'){
             try{
-                const clientUpstream = client.upstreamTransport.find(ut => ut.screen === screen);
+                const clientUpstream = client.upstreamTransport.find(ut => ut.transportType === transportType);
                 await clientUpstream.transport.connect({ dtlsParameters });
                 ackCb('success');
 
@@ -200,15 +208,15 @@ io.on('connect', socket => {
         }
     });
 
-    socket.on('startProducing', async ({ kind, rtpParameters, screen }, ackCb) => {
+    socket.on('startProducing', async ({ kind, rtpParameters, transportType }, ackCb) => {
         // create a producer with the rtpParameters we were sent
-        console.log("START PRODUCING FOR SCREEN FOR KIND: ", kind, "and screen? ", screen);
+        console.log("START PRODUCING FOR SCREEN FOR KIND: ", kind, "and transportType? ", transportType);
         try{
-            const clientUpstream = client.upstreamTransport.find(ut => ut.screen == screen);
+            const clientUpstream = client.upstreamTransport.find(ut => ut.transportType === transportType);
             const newProducer = await clientUpstream.transport.produce({kind, rtpParameters});
 
             // add the producer to this clien object
-            client.addProducer(kind, newProducer, screen);
+            client.addProducer(kind, newProducer, transportType);
 
             if(kind === 'audio'){
                 //client.room.activeSpeakerList.push(newProducer.id);
@@ -234,6 +242,7 @@ io.on('connect', socket => {
         
         // run updateActiveSpeaker
         const newTransportByPeer = updateActiveSpeaker(client.room, io);
+        console.log(" new transort by peer: ", newTransportByPeer)
         // newTransportByPeer is an object, each property is a socket.id that
         // has transports to make. They are in an array, by pid
         for(const [socketId, audioPidsToCreate] of Object.entries(newTransportByPeer)){

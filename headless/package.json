@@ -1,0 +1,19 @@
+{
+  "name": "headless",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node client.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "mediasoup-client": "^3.18.0",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "wrtc": "^0.4.7"
+  }
+}

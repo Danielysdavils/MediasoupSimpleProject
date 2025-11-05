@@ -56,11 +56,13 @@ const config = {
     webRtcTransport: {
         listenIps: [
             {
-                ip: '172.16.2.210',  // '172.233.24.100', //local: 127.0.0.1
-                aouncedIp: '172.16.2.210' // '172.233.24.100' // replace by public address
+                ip: '127.0.0.1',  // '172.233.24.100', //local: 127.0.0.1
+                anouncedIp: null // '172.233.24.100' // replace by public address
                 //anouncedIp: serverIp
             }
         ],
+
+        listenInfo: { protocol: "udp", ip: "127.0.0.1" },
         // For a typical video stream with HD quality, you might set maxIncomingBitrate
         // around 5Mbps (5000 kbps) to balance quality and bandwidth
         // 4k Ultra HD: 15bps to 25 Mbps

@@ -1,6 +1,6 @@
-const createProduceTransport = (socket, device, screen = false) => new Promise(async(resolve, reject) => {
+const createProduceTransport = (socket, device, transportType = 'default') => new Promise(async(resolve, reject) => {
     // ask the server to make a tranpsort and send params
-    const producerTransportParams = await socket.emitWithAck('requestTransport', { type:'producer', audioPid: null, screen });
+    const producerTransportParams = await socket.emitWithAck('requestTransport', { type:'producer', audioPid: null, transportType });
     console.log(producerTransportParams);
 
     //use the device to create a front-end transport to sned
@@ -13,7 +13,7 @@ const createProduceTransport = (socket, device, screen = false) => new Promise(a
         // the other half of the connection
         // emit connectTransport
         console.log("Connect running on produce...");
-        const connectResp = await socket.emitWithAck("connectTransport", {dtlsParameters, type: 'producer', audioPid: null, screen});
+        const connectResp = await socket.emitWithAck("connectTransport", {dtlsParameters, type: 'producer', audioPid: null, transportType});
         console.log(connectResp, "connect rasp is back!");
 
         if(connectResp === 'success'){
@@ -31,7 +31,7 @@ const createProduceTransport = (socket, device, screen = false) => new Promise(a
         const { kind, rtpParameters } = parameters;
         console.log("AQUI DEVERIA APARECER AUDII E VIDEO", kind);
 
-        const produceResp = await socket.emitWithAck('startProducing', {kind, rtpParameters, screen});
+        const produceResp = await socket.emitWithAck('startProducing', {kind, rtpParameters, transportType});
         console.log(produceResp, "produceResp is back!");
 
         if(produceResp === 'error'){

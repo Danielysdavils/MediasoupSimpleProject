@@ -18,6 +18,7 @@ const renderLayout = (consumers, currentUser) => {
         const remoteVideoUserName = document.getElementById(`username-${slotIndex}`);
 
         if(remoteVideo && combineStream){
+            console.log("entrou aqui?");
             if(currentUser === userName) remoteVideo.muted = true;
             remoteVideo.srcObject = combineStream;
         }

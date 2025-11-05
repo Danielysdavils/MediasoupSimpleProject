@@ -78,6 +78,8 @@ const requestTransportToConsume = (consumeData, socket, device, consumers, curre
                 screenAudioConsumer: null
             }
 
+            console.log(consumers[audioPid])
+
             existingConsumer = consumers[audioPid]; // ??? verificar depois
         }
         

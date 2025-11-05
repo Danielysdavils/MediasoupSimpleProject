@@ -119,7 +119,7 @@
 
   // ========== SOCKET HANDLERS =========== //
 
-  const socket = io.connect(`http://172.16.2.210:3031`);
+  const socket = io.connect(`http://localhost:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });
@@ -483,7 +483,7 @@
     // aqui é importatnte reaproveitar o transport existe.
     //  Evita problemas de conexão e consumo desnecessário pro servidor
     if(!screenTransport){
-      screenTransport = await createProduceTransport(socket, device, true);
+      screenTransport = await createProduceTransport(socket, device, 'desktop');
       console.log("Have screenTransport for screeen! Time to produce!");
     }else{
       console.log("We already have a transport, using existing!");

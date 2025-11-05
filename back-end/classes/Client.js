@@ -27,7 +27,14 @@ class Client{
         this.room = null // this will be a Room object
     }
 
-    addTransport(type, audioPid = null, videoPid = null, videoScreenPid = null, audioScreenPid = null, screen = false){
+    // temos 4 tipos de transport's:
+    //   1. default: audio/video padrão
+    //   2. desktop: audio/video do desktop
+    //   3. audioHeadless: só audio
+    //   4. videoHeadless: só video
+
+    // two transport for upstream for normal user: 'default', 'desktop'
+    addTransport(type, audioPid = null, videoPid = null, videoScreenPid = null, audioScreenPid = null, transportType = 'default'){
         return new Promise(async (resolve, reject) => {
             const { listenIps, initialAvailableOutgoinBitrate, maxIncomingBitrate } = config.webRtcTransport;
             const transport = await this.room.router.createWebRtcTransport({
@@ -61,7 +68,7 @@ class Client{
                 /* para producer vamos manter 2 transport separados,
                  1 para a/v da camera e 1 para a/v da tela */
                 this.upstreamTransport.push({
-                    screen, //if this tranport is for desktop screen
+                    transportType, //if this tranport is for desktop screen
                     transport
                 }); // need to change for 2 transport
                 
@@ -79,6 +86,37 @@ class Client{
                     associatedAudioScreenPid: audioScreenPid
                 });
             }
+            resolve(clientTransportParams);
+        });
+    }
+
+    // two ther types of transport for plainTransport, headless client: 'audio', 'video' 
+    addPlainTransport(room, transportType){
+        return new Promise(async (resolve, reject) => {
+            const { listenInfo } = config.webRtcTransport;
+
+            const transport = await room.router.createPlainTransport({
+                listenInfo,
+                rtcpMux: false, // verificar depois!!
+                comedia: true
+            });
+
+            const clientTransportParams = {
+                id: transport.id,
+                ip: transport.tuple.localIp,
+                port: transport.tuple.localPort,
+                rtcpPort: transport.rtcpTuple.localPort
+            }
+
+            this.upstreamTransport.push({
+                transportType,
+                transport
+            });
+
+            transport.on('rtp', (packet) => {
+                console.log("rtp packet recebido!")
+            });
+
             resolve(clientTransportParams);
         });
     }
@@ -110,8 +148,8 @@ class Client{
         })
     }
 
-    addProducer(kind, newProducer, screen){
-        if(screen){
+    addProducer(kind, newProducer, transportType){
+        if(transportType === 'desktop'){
             this.producer[`${kind}Screen`] = newProducer;
         }else 
             this.producer[kind] = newProducer;
