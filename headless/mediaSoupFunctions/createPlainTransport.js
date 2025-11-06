@@ -6,7 +6,14 @@ const createPlainTransport = async (socket, room) =>
         console.log("videoPlainTransportParams: ", videoPlainTransportParams);
         console.log("audioPlainTransportParams: ", audioPlainTransportParams);
 
-        resolve({videoPlainTransportParams, audioPlainTransportParams});
+        resolve({
+            video_ip : videoPlainTransportParams.ip,
+            video_port: videoPlainTransportParams.port,
+            video_rtcpPort: videoPlainTransportParams.rtcpPort,
+            audio_ip: audioPlainTransportParams.ip,
+            audio_port: audioPlainTransportParams.port,
+            audio_rtcpPort: audioPlainTransportParams.rtcpPort
+        });
 });
 
 module.exports = createPlainTransport;

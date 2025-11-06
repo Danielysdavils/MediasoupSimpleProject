@@ -27,26 +27,18 @@ socket.on("connect", async () => {
     const joinRoomResp = await socket.emitWithAck('joinRoom', {user, room});
     console.log("joinRoomResp: ", joinRoomResp);
 
-    // crio o plainTransport
+    // crio o plainTransport, importante usar 2 transport: 1a/1v
     plainTransportParams = await createPlainTransport(socket, room);
     console.log("PlainTransport created!");
 
-    const videoPlainTransportParams = plainTransportParams.videoPlainTransportParams;
-    const audioPlainTransportParams = plainTransportParams.audioPlainTransportParams;
-
-    const video_ip = videoPlainTransportParams.ip;
-    const video_port = videoPlainTransportParams.port;
-    const video_rtcpPort = videoPlainTransportParams.rtcpPort;
-
-    const audio_ip = audioPlainTransportParams.ip;
-    const audio_port = audioPlainTransportParams.port;
-    const audio_rtcpPort = audioPlainTransportParams.rtcpPort;
+    const { video_ip, video_port, video_rtcpPort, audio_ip, audio_port, audio_rtcpPort } = plainTransportParams;
 
     const ffmpegArgs = [
         '-re',
         '-v', 'info',
         '-i', videoPath,
 
+        // audio params
         '-map', '0:a:0',
         '-acodec', 'libopus',
         '-ab', '128k',
@@ -55,6 +47,7 @@ socket.on("connect", async () => {
         '-payload_type', '101',
         '-ssrc', '11111111',
 
+        // video params
         '-map', '0:v:0',
         '-c:v', 'libvpx',
         '-b:v', '1000k',
