@@ -30,6 +30,7 @@ class Client{
     // temos 4 tipos de transport's:
     //   1. default: audio/video padrão
     //   2. desktop: audio/video do desktop
+    // headless para transmissão de arquivos locais
     //   3. audioHeadless: só audio
     //   4. videoHeadless: só video
 
@@ -93,10 +94,10 @@ class Client{
     // two ther types of transport for plainTransport, headless client: 'audio', 'video' 
     addPlainTransport(room, transportType){
         return new Promise(async (resolve, reject) => {
-            const { listenInfo } = config.webRtcTransport;
+            const { listenIp } = config.webRtcTransport;
 
             const transport = await room.router.createPlainTransport({
-                listenIp: { ip: "127.0.0.1" },
+                listenIp,
                 rtcpMux: false, 
                 comedia: true
             });
@@ -113,20 +114,6 @@ class Client{
             this.upstreamTransport.push({
                 transportType,
                 transport
-            });
-
-            console.log(`✅ PlainTransport criado para ${transportType}`);
-            console.log(`   IP: ${clientTransportParams.ip}`);
-            console.log(`   RTP port: ${clientTransportParams.port}`);
-            console.log(`   RTCP port: ${clientTransportParams.rtcpPort}`);
-
-            // 🟢 LOG DE PACOTES RTP RECEBIDOS
-            transport.on('rtp', (packet) => {
-                if (transportType.includes('video')) {
-                    console.log(`🎥 Pacote RTP de VÍDEO recebido! ${packet.length} bytes`);
-                } else if (transportType.includes('audio')) {
-                    console.log(`🎧 Pacote RTP de ÁUDIO recebido! ${packet.length} bytes`);
-                }
             });
 
             resolve(clientTransportParams);

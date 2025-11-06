@@ -2,8 +2,6 @@ const { io } = require("socket.io-client")
 const { spawn } = require("child_process")
 const path = require("path")
 
-const createPlainTransport = require('./mediaSoupFunctions/createPlainTransport')
-const createProducerTransport = require("./mediaSoupFunctions/createProducerTransport")
 
 // este usuário será substituido com usuário que criou a sessão. Dado obtidos da Api
 const user = 'server_teste'; 
