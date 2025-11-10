@@ -13,7 +13,7 @@ const videoPath = path.resolve(__dirname, "video", "video1.mp4")
 // transport's
 let plainTransportParams = null;
 
-const socket = io(`http://localhost:3031`, {
+const socket = io(`http://172.233.24.100:3031`, {
     transports: ["websocket"],
     reconnection: true,
 });

@@ -119,7 +119,7 @@
 
   // ========== SOCKET HANDLERS =========== //
 
-  const socket = io.connect(`http://localhost:3031`);
+  const socket = io.connect(`http://172.233.24.100:3031`);
   socket.on('connect', () => {
     console.log("INIT CONNECTED!");
   });

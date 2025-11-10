@@ -5,12 +5,12 @@ const createPlainTransport = require('./mediaSoupFunctions/createPlainTransport'
 const createProducerTransport = require("./mediaSoupFunctions/createProducerTransport")
 
 class Session{
-    constructor({id, name, creator, startTime, endTime, files, room}){
+    constructor(id, name, creator, startDateTime, endDateTime, files, room){
         this.id = id,
         this.name = name,
         this.creator = creator,
-        this.startTime = new Date(startTime),
-        this.endTime = new Date(endTime),
+        this.startTime = new Date(startDateTime),
+        this.endTime = new Date(endDateTime),
         this.files = files, // esse é os files concat: .txt com os endereços finais dos arquivos
         this.socket = null,
         this.ffmpeg = null,
