@@ -1,16 +1,16 @@
 const { io } = require("socket.io-client");
 const { spawn } = require("child_process");
 
-const createPlainTransport = require('./mediaSoupFunctions/createPlainTransport')
-const createProducerTransport = require("./mediaSoupFunctions/createProducerTransport")
+const createPlainTransport = require('../mediaSoupFunctions/createPlainTransport')
+const createProducerTransport = require("../mediaSoupFunctions/createProducerTransport")
 
 class Session{
     constructor(id, name, creator, startDateTime, endDateTime, files, room){
         this.id = id,
         this.name = name,
         this.creator = creator,
-        this.startTime = new Date(startDateTime),
-        this.endTime = new Date(endDateTime),
+        this.startDateTime = new Date(startDateTime),
+        this.endDateTime = new Date(endDateTime),
         this.files = files, // esperado uma string com os arquivos a rep: 'files [filepath]'
         this.socket = null,
         this.ffmpeg = null,
@@ -30,7 +30,7 @@ class Session{
             console.log(`[Session ${this.id}] connected to ${serverUrl}!`);
         });
 
-        thhis.socket.on("disconnect", () => {
+        this.socket.on("disconnect", () => {
             console.log(`[Session ${this.id}] disconnected from ${serverUrl}`);
         });
     }

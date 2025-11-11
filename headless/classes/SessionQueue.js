@@ -12,6 +12,7 @@ class SessionQueue{
     }
 
     addSession(session){
+        console.log(session);
         if(!session || !session.startDateTime){
             throw new Error("Sessão inválida: é necessário um startDateTime valido");
         }
@@ -59,7 +60,7 @@ class SessionQueue{
     }
 
     // remove o primeiro da lista
-    removeSession(){
+    removeFirtsSession(){
         return this.sessions.shift();
     }
 

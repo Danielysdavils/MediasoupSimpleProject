@@ -1,3 +1,7 @@
+const path = require("path")
+const fs = require("fs")
+const os = require ("os")
+
 const Session = require("./Session");
 const SessionQueue = require("./SessionQueue");
 
@@ -17,12 +21,15 @@ class SessionManager{
         let sessionFiles = "";
         if(session?.files?.length) sessionFiles = this.prepareFiles(session.files);
 
+        console.log("session startDateTime: ", session.startDateTime);
+
         // verificar como vou receber o objeto sessão aqui (*)
         const newSession = new Session(session.id, session.name, session.creator, session.startDateTime, session.endDateTime, sessionFiles, `${session.id}`);
         newSession.connectToServer(this.serverUrl); // pro baleanceamento de carga bom adicionar dif servers!
         this.sessionsList.addSession(newSession);
         
         console.log(`[SessionManager]: sessão ${session.id} adicionada com sucesso!`);
+        console.log("all: ", this.sessionsList.getAll());
     }
 
     // atualiza sessão pasada no param
@@ -36,13 +43,19 @@ class SessionManager{
         this.sessionsList.updateSession(sessionId, updatedSession);
         
         console.log(`[SessionManager]: sessão atualizada com sucesso!`);
+        this.sessionsList.getAll();
     }
 
     // inicia sessão pronta pra começar
     startScheduler(){
+        console.log("Start schefule?");
         setInterval(() => {
+            console.log("realmente confere?");
             const now = new Date();
-            let currentSession = this.sessionsList.removeSession();
+            console.log("lista atual: ",  this.sessionsList.getAll());
+            let currentSession = this.sessionsList.removeFirtsSession();
+            console.log('currentSession: ', currentSession);
+
             if(currentSession && currentSession.startDateTime <= now){
                 console.log(`[SessionManager]: Iniciando sessão ${currentSession.id}`);
                 currentSession.startTransmission();
@@ -64,9 +77,36 @@ class SessionManager{
 
     // função aux para preparar os arquivos da sessão num formato compatível ffmpeg
     prepareFiles(files = []){
-        return files.length
-            ? files.map(f => `file '${f.fullPath}'`).join('\n')
-            : '';
+        if(!files?.length) return '';
+
+        const isWindows = os.platform() === 'win32';
+
+        return files.filter(f => {
+            if(!f?.fullPath) return false;
+            try{
+                return fs.existsSync(f.fullPath);
+            }catch(err){
+                console.log(`[SessionManager]: error in prepareFiles: ${err}`);
+                return false;
+            }
+        })
+        .map(f => {
+            // Resolve para caminho absoluto
+            let resolvedPath = path.resolve(f.fullPath);
+            // Normaliza separadores conforme o SO
+            resolvedPath = path.normalize(resolvedPath);
+
+            // No Windows, converte barras invertidas (\) em barras normais (/)
+            // pois o FFmpeg entende melhor o formato Unix-like.
+            if (isWindows) {
+                resolvedPath = resolvedPath.replace(/\\/g, '/');
+            }
+
+            // Escapa apóstrofos e espaços
+            const safePath = resolvedPath.replace(/'/g, "'\\''");
+            return `file '${safePath}'`;  
+        })
+        .join('\n');
     }
 }
 
