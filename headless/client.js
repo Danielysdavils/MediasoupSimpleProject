@@ -1,8 +1,3 @@
-const { io } = require("socket.io-client") 
-const { spawn } = require("child_process")
-const path = require("path")
-
-
 // este usuário será substituido com usuário que criou a sessão. Dado obtidos da Api
 const user = 'server_teste'; 
 // este nome da sala será subst com um id da Api também (*) pode ser id da sessão aleat (*) precisa ser identificador único

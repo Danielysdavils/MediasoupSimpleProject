@@ -11,7 +11,7 @@ class Session{
         this.creator = creator,
         this.startTime = new Date(startDateTime),
         this.endTime = new Date(endDateTime),
-        this.files = files, // esse é os files concat: .txt com os endereços finais dos arquivos
+        this.files = files, // esperado uma string com os arquivos a rep: 'files [filepath]'
         this.socket = null,
         this.ffmpeg = null,
         this.status = "pending" // pending | running | finished | cancelled
@@ -51,40 +51,48 @@ class Session{
         const { video_ip, video_port, video_rtcpPort, audio_ip, audio_port, audio_rtcpPort } = plainTransportParams;
 
         const ffmpegArgs = [
-            '-re',
-            '-v', 'info',
-            '-i', this.files,
+            '-re', '-v', 'info',
+            '-f', 'concat', '-safe', '0', '-i', '-', // stdin com a lista de arquivos
 
-            // audio params
-            '-map', '0:a:0',
-            '-acodec', 'libopus',
-            '-ab', '128k',
-            '-ac', '2',
-            '-ar', '48000',
-            '-payload_type', '101',
-            '-ssrc', '11111111',
+            // Fallback para áudio ausente: gera mudo se não houver áudio
+            '-f', 'lavfi', '-t', '0.1', '-i', 'anullsrc=r=48000:cl=stereo',
 
-            // video params
-            '-map', '0:v:0',
-            '-c:v', 'libvpx',
-            '-b:v', '1000k',
-            '-deadline', 'realtime',
-            '-cpu-used', '4',
-            '-pix_fmt', 'yuv420p',
-            '-payload_type', '102',
-            '-ssrc', '22222222',
+            // Seleciona: usa áudio do vídeo se existir, senão usa o anullsrc
+            '-filter_complex',
+            "[0:a]loudnorm=I=-16:TP=-1.5:LRA=11[a1];" + // normalização EBU R128
+            "[1:a][a1]amerge=inputs=1[aout];" +          // combina fallback + áudio original
+            "[0:v]scale=-2:720,format=yuv420p[vout]",   // redimensiona vídeo
 
+            // Mapeia as saídas dos filtros
+            '-map', '[aout]', 
+            '-map', '[vout]',
+
+            // audio codecs
+            '-acodec', 'libopus', '-ab', '128k', '-ac', '2', '-ar', '48000',
+            '-payload_type', '101', '-ssrc', '11111111',
+
+            // video codecs
+            '-c:v', 'libvpx', '-b:v', '1000k', '-deadline', 'realtime', 
+            '-cpu-used', '4', '-pix_fmt', 'yuv420p', 
+            '-payload_type', '102', '-ssrc', '22222222',
+
+            // saída rtp (tee multiplexer)
             '-f', 'tee',
             `[select=a:f=rtp:ssrc=11111111:payload_type=101]rtp://${audio_ip}:${audio_port}?rtcpport=${audio_rtcpPort}|[select=v:f=rtp:ssrc=22222222:payload_type=102]rtp://${video_ip}:${video_port}?rtcpport=${video_rtcpPort}`
         ];
 
         this.ffmpeg = spawn("ffmpeg", ffmpegArgs);
+
+        this.ffmpeg.stdin.write(this.files);
+        this.ffmpeg.stdin.end();
+
         ffmpeg.stdout.on("data", (data) => {
             console.log(`stdout: ${data}`);
         });
 
         this.ffmpeg.stderr.on("data", (data) => {
-            console.error(`stderr: ${data}`)
+            console.log(data.toString());
+            console.error(`stderr: ${data}`);
         });
 
         this.ffmpeg.on("close", (code) => {
