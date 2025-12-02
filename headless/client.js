@@ -16,12 +16,12 @@ const sessionsForTest = [
         id: 1,
         name: 'session1',
         creator: 'lin',
-        startDateTime: new Date('2025', '11', '10', '23', '55'),
-        endDateTime: new Date('2025', '11', '10', '23', '10'),
+        startDateTime: new Date('2025', '10', '16', '21', '26'),
+        endDateTime: new Date('2025', '10', '16', '20', '49'),
         files: [
-            {fullPath: 'C:\Users\mtw\Downloads\sfu\mediasoup\copy-mediasoupProject\MediasoupSimpleProject\headless\video\video1.mp4'},
-            {fullPath: 'C:\Users\mtw\Downloads\sfu\mediasoup\copy-mediasoupProject\MediasoupSimpleProject\headless\video\Is Civilization on the Brink of Collapse.mp4'},
-            {fullPath: `C:\Users\mtw\Downloads\sfu\mediasoup\copy-mediasoupProject\MediasoupSimpleProject\headless\video\Black Hole's Evil Twin - Gravastars Explained.mp4`}
+            {fullPath: `C:/Users/mtw/Downloads/sfu/mediasoup/copy-mediasoupProject/MediasoupSimpleProject/headless/video/video21.mp4`},
+            {fullPath: `C:/Users/mtw/Downloads/sfu/mediasoup/copy-mediasoupProject/MediasoupSimpleProject/headless/video/video1.mp4`},
+            {fullPath: `C:/Users/mtw/Downloads/sfu/mediasoup/copy-mediasoupProject/MediasoupSimpleProject/headless/video/video3.mp4`},
         ]
     }
 ]

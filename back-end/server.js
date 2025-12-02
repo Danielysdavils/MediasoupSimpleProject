@@ -181,6 +181,26 @@ io.on('connect', socket => {
         callback(clientTransportParams);
     });
 
+    socket.on("closePlainTransport", async({ transportType }, callback) => {
+        try{
+            const clientUpstreamIndex = client.upstreamTransport.findIndex(ut => ut.transportType === transportType);
+            if(clientUpstreamIndex === -1) return callback(new Error("plain transport not found"));
+
+            const clientUpstream = client.upstreamTransport[clientUpstreamIndex];
+
+            await clientUpstream.transport.close();
+            if(clientUpstream.transport.closed) console.log("FECHADO MSM!!")
+
+            client.upstreamTransport.splice(clientUpstreamIndex, 1);
+            console.log(`Plain transport ${transportType} closed and removed.`);
+
+            callback('success');
+        }catch(err){
+            console.log(err);
+            callback(err)
+        }
+    });
+
     socket.on('connectTransport', async ({dtlsParameters, type, audioPid, transportType}, ackCb) => {
         if(type === 'producer'){
             try{
@@ -208,13 +228,24 @@ io.on('connect', socket => {
         }
     });
 
+    socket.on('closeProducer', async({kind}, ackCb) => {
+        try{
+            client.producer[kind]?.close();
+            delete client.producer[kind];
+            ackCb('success')
+        }catch(err){
+            console.log(err);
+            ackCb(err);
+        }
+    });
+
     socket.on('startProducing', async ({ kind, rtpParameters, transportType }, ackCb) => {
         // create a producer with the rtpParameters we were sent
         console.log("START PRODUCING FOR SCREEN FOR KIND: ", kind, "and transportType? ", transportType);
         try{
             const clientUpstream = client.upstreamTransport.find(ut => ut.transportType === transportType);
             const newProducer = await clientUpstream.transport.produce({kind, rtpParameters});
-
+            
             // add the producer to this clien object
             client.addProducer(kind, newProducer, transportType);
 
@@ -234,7 +265,7 @@ io.on('connect', socket => {
             console.log("ending createProducerTransport!");
             ackCb(newProducer.id);
         }catch(err){
-            console.log(err);
+            console.log("ERROR: ", err);
             ackCb(err)
         }
         

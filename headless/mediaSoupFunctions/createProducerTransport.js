@@ -21,19 +21,19 @@ const createProducerTransport = async (socket) => {
             //rtcp: { cname: "CNAME" },
         };
 
-        const videoProducerId = await socket.emitWithAck("startProducing", { 
+        const videoProducer = await socket.emitWithAck("startProducing", { 
             kind: "video", 
             rtpParameters: rtpParametersVideo,
             transportType: 'videoHeadless', 
         });
 
-        const audioProducerId = await socket.emitWithAck("startProducing", { 
+        const audioProducer = await socket.emitWithAck("startProducing", { 
             kind: "audio", 
             rtpParameters: rtpParametersAudio,
             transportType: 'audioHeadless',
         });
 
-        resolve({audioProducerId, videoProducerId});
+        resolve({audioProducer, videoProducer});
     });
 }
 

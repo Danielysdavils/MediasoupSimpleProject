@@ -1,8 +1,11 @@
 const { io } = require("socket.io-client");
 const { spawn } = require("child_process");
+const path = require("path");
 
 const createPlainTransport = require('../mediaSoupFunctions/createPlainTransport')
 const createProducerTransport = require("../mediaSoupFunctions/createProducerTransport")
+const closeProducerTransport = require("../mediaSoupFunctions/closeProducerTransport")
+const closePlainTransport = require("../mediaSoupFunctions/closePlainTransport")
 
 class Session{
     constructor(id, name, creator, startDateTime, endDateTime, files, room){
@@ -16,6 +19,10 @@ class Session{
         this.ffmpeg = null,
         this.status = "pending" // pending | running | finished | cancelled
         this.room = room
+        this.index = 0
+        this.producer = null;
+        this.plainTransportParams = null;
+        this.current = null;
     }
 
     connectToServer(serverUrl){
@@ -35,80 +42,98 @@ class Session{
         });
     }
 
-    async startTransmission(){
-        if(this.socket || this.status !== "pending") return;
+    async start(){
+        if(!this.socket || this.status !== "pending") return;
 
         this.status = "running";
 
-        // primeiro procuro rtpcapabilities para device
-        const joinRoomResp = await socket.emitWithAck('joinRoom', {user: this.creator, room: this.room});
+        console.log("[session]: calling joinroom");
+        const joinRoomResp = await this.socket.emitWithAck('joinRoom', {user: this.creator, room: this.room});
         console.log("joinRoomResp: ", joinRoomResp);
 
-        // crio o plainTransport, importante usar 2 transport: 1a/1v
-        plainTransportParams = await createPlainTransport(this.socket, this.room);
+        console.log("this files: ", this.files);
+        await this._playFile(this.files[this.index]);
+    }
+
+    async _playFile(file){
+        // fecha os producers abertos
+        if(this.producer){
+            await closeProducerTransport(this.socket);
+            this.producer = null;
+        }
+        if(this.plainTransportParams){
+            await closePlainTransport(this.socket);
+            this.plainTransportParams = null;
+        }
+
+        console.log("Reproduzindo: ", file);
+        
+        this.plainTransportParams = await createPlainTransport(this.socket, this.room);
         console.log("PlainTransport created!");
 
-        const { video_ip, video_port, video_rtcpPort, audio_ip, audio_port, audio_rtcpPort } = plainTransportParams;
+        const { video_ip, video_port, video_rtcpPort, audio_ip, audio_port, audio_rtcpPort } = this.plainTransportParams;
 
-        const ffmpegArgs = [
-            '-re', '-v', 'info',
-            '-f', 'concat', '-safe', '0', '-i', '-', // stdin com a lista de arquivos
+        console.log("v-port: ", video_port);
+        console.log("a-port: ", audio_port);
 
-            // Fallback para áudio ausente: gera mudo se não houver áudio
-            '-f', 'lavfi', '-t', '0.1', '-i', 'anullsrc=r=48000:cl=stereo',
+        const args = [
+            "-re",
+            "-i", file,
 
-            // Seleciona: usa áudio do vídeo se existir, senão usa o anullsrc
-            '-filter_complex',
-            "[0:a]loudnorm=I=-16:TP=-1.5:LRA=11[a1];" + // normalização EBU R128
-            "[1:a][a1]amerge=inputs=1[aout];" +          // combina fallback + áudio original
-            "[0:v]scale=-2:720,format=yuv420p[vout]",   // redimensiona vídeo
+            // AUDIO
+            "-map", "0:a:0?",
+            "-c:a", "libopus",
+            "-b:a", "128k",
+            "-ar", "48000",
+            "-ac", "2",
+            "-payload_type", "101",
+            "-ssrc", "11111111",
 
-            // Mapeia as saídas dos filtros
-            '-map', '[aout]', 
-            '-map', '[vout]',
+            // VIDEO
+            "-map", "0:v:0?",
+            "-c:v", "libvpx",
+            "-b:v", "1000k",
+            "-deadline", "realtime",
+            "-cpu-used", "4",
+            "-pix_fmt", "yuv420p",
+            "-payload_type", "102",
+            "-ssrc", "22222222",
 
-            // audio codecs
-            '-acodec', 'libopus', '-ab', '128k', '-ac', '2', '-ar', '48000',
-            '-payload_type', '101', '-ssrc', '11111111',
-
-            // video codecs
-            '-c:v', 'libvpx', '-b:v', '1000k', '-deadline', 'realtime', 
-            '-cpu-used', '4', '-pix_fmt', 'yuv420p', 
-            '-payload_type', '102', '-ssrc', '22222222',
-
-            // saída rtp (tee multiplexer)
-            '-f', 'tee',
-            `[select=a:f=rtp:ssrc=11111111:payload_type=101]rtp://${audio_ip}:${audio_port}?rtcpport=${audio_rtcpPort}|[select=v:f=rtp:ssrc=22222222:payload_type=102]rtp://${video_ip}:${video_port}?rtcpport=${video_rtcpPort}`
+            "-f", "tee",
+            `[select=a:f=rtp:ssrc=11111111:payload_type=101]rtp://${audio_ip}:${audio_port}?rtcpport=${audio_rtcpPort}|` +
+            `[select=v:f=rtp:ssrc=22222222:payload_type=102]rtp://${video_ip}:${video_port}?rtcpport=${video_rtcpPort}`
         ];
 
-        this.ffmpeg = spawn("ffmpeg", ffmpegArgs);
+        this.current = spawn("ffmpeg", args);
 
-        this.ffmpeg.stdin.write(this.files);
-        this.ffmpeg.stdin.end();
-
-        ffmpeg.stdout.on("data", (data) => {
-            console.log(`stdout: ${data}`);
-        });
-
-        this.ffmpeg.stderr.on("data", (data) => {
-            console.log(data.toString());
-            console.error(`stderr: ${data}`);
-        });
-
-        this.ffmpeg.on("close", (code) => {
-            console.log(`Ffmpeg exited with code ${code}`);
-            this.status = "finished";
-        });
-
-        this.ffmpeg.on("exit", (code) => {
-            console.log(`Ffmpeg exited with code ${code} for session: ${this.id}`);
-            this.status = "finished";
+        this.current.stderr.on("data", d => console.log("[ffmpeg]: ", d.toString()));
+        this.current.on("exit", async () => {
+            console.log("Ffmpeg terminoou de rep: ", file);
+            await this._next();
         });
 
         setTimeout(async () => {
-            const producer = await createProducerTransport(this.socket);
-            console.log(producer);
+            if(!this.producer){
+                this.producer = await createProducerTransport(this.socket);
+                console.log("ProducerTransport created!", this.producer);
+            }
         }, 1000);
+    }
+
+    async _next(){
+        this.index++;
+        if(this.index >= this.files.length){
+            console.log("Playlist terminou!!");
+            return;
+        }
+
+        await this._playFile(this.files[this.index]);
+    }
+
+    stop(){
+        if(this.current){
+            this.current.kill("SIGKILL");
+        }
     }
 
     async cancel(){ // adicionar close() dos producers e transport's
