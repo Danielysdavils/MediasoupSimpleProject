@@ -3,8 +3,7 @@ const closeProducerTransport = async (socket) => {
         const videoProducer = await socket.emitWithAck("closeProducer", { kind: "video" });
         const audioProducer = await socket.emitWithAck("closeProducer", { kind: "audio" });
 
-        if(videoProducer === 'success' && audioProducer === 'success') resolve(true);
-        else resolve(false);
+        resolve(videoProducer === 'success' && audioProducer === 'success' ? true : false);
     });
 }
 

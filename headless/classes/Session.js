@@ -6,6 +6,7 @@ const createPlainTransport = require('../mediaSoupFunctions/createPlainTransport
 const createProducerTransport = require("../mediaSoupFunctions/createProducerTransport")
 const closeProducerTransport = require("../mediaSoupFunctions/closeProducerTransport")
 const closePlainTransport = require("../mediaSoupFunctions/closePlainTransport")
+const closeRoom = require("../mediaSoupFunctions/closeRoom")
 
 class Session{
     constructor(id, name, creator, startDateTime, endDateTime, files, room){
@@ -16,13 +17,12 @@ class Session{
         this.endDateTime = new Date(endDateTime),
         this.files = files, // esperado uma string com os arquivos a rep: 'files [filepath]'
         this.socket = null,
-        this.ffmpeg = null,
         this.status = "pending" // pending | running | finished | cancelled
         this.room = room
         this.index = 0
         this.producer = null;
         this.plainTransportParams = null;
-        this.current = null;
+        this.current = null; // ffmpeg current process
     }
 
     connectToServer(serverUrl){
@@ -124,29 +124,46 @@ class Session{
         this.index++;
         if(this.index >= this.files.length){
             console.log("Playlist terminou!!");
+            this.status = "finished";
+            this._finish();
             return;
         }
 
         await this._playFile(this.files[this.index]);
     }
 
-    stop(){
-        if(this.current){
-            this.current.kill("SIGKILL");
+    async cancel(){ // adicionar close() dos producers e transport's
+        if(this.current && this.status === "running"){
+            this.status = "cancelled";
         }
+
+        await this._finish();
     }
 
-    async cancel(){ // adicionar close() dos producers e transport's
-        if(this.ffmpeg && this.status === "running"){
-            this.ffmpeg.kill("SIGINT");
-            console.log(`[Session ${this.id}] Ffmpeg finalizado!`);
+    async _finish(){
+        if(this.current){
+            this.current.kill("SIGINT");
+            this.current = null;
         }
 
-        this.status = "cancelled";
+        if(this.producer){
+            await closeProducerTransport(this.socket);
+            this.producer = null;
+        }
+
+        if(this.plainTransportParams){
+            await closePlainTransport(this.socket);
+            this.plainTransportParams = null;
+        }
+
+        await closeRoom(this.socket);
+
         if(this.socket){
             this.socket.disconnect();
             this.socket = null;
         }
+
+        console.log("Session finished! All data removed");
     }
 }
 

@@ -15,13 +15,10 @@ class SessionManager{
     // adiciona sessão à fila global
     addSession(session){
         if(!session) throw new Error("não é possível adicionar sessão invalida");
-        console.log("session files antes do prepare ", session.files);
-
+        
         // o formato q o ffmpeg espera para os arquvios é uma string com - unicamente - o caminho do arquivo
         let sessionFiles = "";
         if(session?.files?.length) sessionFiles = this.prepareFiles(session.files);
-
-        console.log("session startDateTime: ", session.startDateTime);
 
         // verificar como vou receber o objeto sessão aqui (*)
         const newSession = new Session(session.id, session.name, session.creator, session.startDateTime, session.endDateTime, sessionFiles, `${session.id}`);

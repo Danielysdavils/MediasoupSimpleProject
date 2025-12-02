@@ -292,7 +292,6 @@
   // sai da sala
   const leaveRoom = async () => {
     console.log("Usuário saindo da sala!");
-
     try{
       if(isProducer.value && !isCreator.value) socket.emit("leaveRoom", {reason: 'producerLeft'});
       else if(isProducer.value && isCreator.value) socket.emit("leaveRoom", {reason: 'creatorLeft'});
@@ -305,7 +304,6 @@
       socket.disconnect();
 
       console.log("Uusário saiu com sucesso!");
-
     }catch(err){
       console.log("Erro ao tentar sair da sala: ", err);
     }
@@ -349,7 +347,6 @@
       resetFront();
 
       console.log("Finish cleaning local media!");
-
     }catch(err){
       console.log("Error cleaning local media: ", err);
     }
