@@ -101,9 +101,9 @@ class SessionManager{
 
         console.log(`[SessionManager]: Prox sessão ${nextSession.id} agendada para ${nextSession.startDateTime}`);
 
-        this.currentTimer = setTimeout(() => {
+        this.currentTimer = setTimeout(async () => {
             console.log(`chegou a hora de reproducir a sessaõ: ${nextSession.id}...!!`);
-            this.startSession(nextSession);
+            await this.startSession(nextSession);
         }, delay);
     }
 

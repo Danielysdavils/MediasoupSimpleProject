@@ -87,7 +87,10 @@ class Session{
             "-ar", "48000",
             "-ac", "2",
             "-payload_type", "101",
-            "-ssrc", "11111111",
+           "-ssrc", "11111111",
+
+            // melhora sincronização do áudio
+            "-af", "aresample=async=1:first_pts=0",
 
             // VIDEO
             "-map", "0:v:0?",
@@ -98,6 +101,8 @@ class Session{
             "-pix_fmt", "yuv420p",
             "-payload_type", "102",
             "-ssrc", "22222222",
+
+            "-vsync", "1",
 
             "-f", "tee",
             `[select=a:f=rtp:ssrc=11111111:payload_type=101]rtp://${audio_ip}:${audio_port}?rtcpport=${audio_rtcpPort}|` +
