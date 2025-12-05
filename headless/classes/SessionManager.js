@@ -23,13 +23,16 @@ class SessionManager{
         // verificar como vou receber o objeto sessão aqui (*)
         const newSession = new Session(session.id, session.name, session.creator, session.startDateTime, session.endDateTime, sessionFiles, `${session.id}`);
         newSession.connectToServer(this.serverUrl); // pro baleanceamento de carga bom adicionar dif servers!
-        this.sessionsList.addSession(newSession);
         
+        this.sessionsList.addSession(newSession);
         console.log(`[SessionManager]: sessão ${session.id} adicionada com sucesso!`);
-        console.log("all: ", this.sessionsList.getAll());
 
-        console.log(`[SessionManager]: reagendando sessões!`);
-        this.scheduleNextSession();
+        const firstSession = this.sessionsList.getNextSession();
+        // caso a nova sessao seja a primeira da fila, então reagendo
+        if(firstSession?.id === newSession.id){
+            console.log(`[SessionManager]: reagendando sessões!`);
+            this.scheduleNextSession();
+        }
     }
 
     // atualiza sessão pasada no param
@@ -55,7 +58,7 @@ class SessionManager{
     }
 
     // inicia sessão pronta pra começar
-    async startSession(session){
+    startSession(session){
         if(!session){
             console.log("Tentando reproduzir sessão invalida!");
             return;
@@ -63,12 +66,13 @@ class SessionManager{
 
         if(session.status === "running"){
             console.log(`[SessionManager]: Sessão ${session.id} já está em execução. Ignorando!`);
+            return;
         }
 
         try{          
             console.log(`[SessionManager]: Iniciando sessão ${session.id}...`);
-            await session.start();
-
+            this.sessionsList.removeSession(session.id);
+            session.start();
         }catch(err){
             console.log(`[SessionManager]: erro ao inciar sessão. ${err}`);
         }
@@ -90,20 +94,24 @@ class SessionManager{
             return;
         }
 
-        const nextSession = this.sessionsList.removeFirtsSession();
+        const nextSession = this.sessionsList.getNextSession();
         const now = new Date();
-        const delay = nextSession.startDateTime - now;
+        let delay = nextSession.startDateTime - now;
 
         if(delay <= 0){
             this.startSession(nextSession);
             return;
         }
+        
+        const MAX_TIMEOUT = 2 ** 31 - 1;
+        delay = Math.min(delay, MAX_TIMEOUT);
 
+        console.log("delay: ", delay)
         console.log(`[SessionManager]: Prox sessão ${nextSession.id} agendada para ${nextSession.startDateTime}`);
 
-        this.currentTimer = setTimeout(async () => {
+        this.currentTimer = setTimeout(() => {
             console.log(`chegou a hora de reproducir a sessaõ: ${nextSession.id}...!!`);
-            await this.startSession(nextSession);
+            this.startSession(nextSession);
         }, delay);
     }
 
@@ -124,16 +132,12 @@ class SessionManager{
     prepareFiles(files = []){
         if(!files?.length) return '';
 
-        console.log("init")
         const isWindows = os.platform() === 'win32';
-
         return files.filter(f => {
             if(!f?.fullPath){
-                console.log("!f?.fullpath")
                 return false;
             }
             try{
-                console.log("ok? : ", fs.existsSync(f.fullPath))
                 return fs.existsSync(f.fullPath);
             }catch(err){
                 console.log(`[SessionManager]: error in prepareFiles: ${err}`);

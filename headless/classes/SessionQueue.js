@@ -11,6 +11,7 @@ class SessionQueue{
         this.sessions = [];
     }
 
+    /* add a new session into the session queue. The session start dateTime is the priority of the queue */
     addSession(session){
         console.log(session);
         if(!session || !session.startDateTime){
@@ -35,6 +36,7 @@ class SessionQueue{
         }
     }
 
+    /* update a session that exist into the queue */
     updateSession(sessionId, updatedSession){
         if(!this.existSession(sessionId)) throw new Error(`Tentando atualizar sessão que não existe: ${sessionId}`);
         if(!updatedSession) throw new Error("Dados da Sessão a atualizar inválidos!");
@@ -59,12 +61,12 @@ class SessionQueue{
         }
     }
 
-    // remove o primeiro da lista
+    // remove the firts element of queue
     removeFirtsSession(){
         return this.sessions.shift();
     }
 
-    // remove a sessão indicada no parametro
+    // remove the session indicated in the parameter (id)
     removeSession(sessionId){
         if(!sessionId){
             throw new Error("rentando remover sessão invalida!");
@@ -78,18 +80,22 @@ class SessionQueue{
         return null;
     }
 
+    // check if exist a session indicated in the parameter
     existSession(sessionId){
         return this.sessions.some((s) => s.id === sessionId);
     }
 
+    // reset the queue
     destroiQueue(){
         this.sessions = [];
     }
 
+    // get all elements from the queue
     getAll(){
         return [...this.sessions];
     }
 
+    // get the next element in the queue (index 0)
     getNextSession(){
         return this.sessions.length > 0 ? this.sessions[0] : null;
     }
