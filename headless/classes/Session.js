@@ -73,9 +73,6 @@ class Session{
 
         const { video_ip, video_port, video_rtcpPort, audio_ip, audio_port, audio_rtcpPort } = this.plainTransportParams;
 
-        console.log("v-port: ", video_port);
-        console.log("a-port: ", audio_port);
-
         const args = [
             "-re",
             "-i", file,

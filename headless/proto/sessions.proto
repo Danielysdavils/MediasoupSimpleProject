@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package sessions;
+
+import "google/protobuf/timestamp.proto";
+
+message Sessao {
+    string id = 1;
+
+    string name = 2;
+
+    // criador da sessão (Transmitter, User, Responsible, etc)
+    string creator = 3;
+
+    google.protobuf.Timestamp startDateTime = 4;
+
+    google.protobuf.Timestamp endDateTime = 5;
+
+    // lista de caminhos completos dos arquivos
+    repeated string files = 6;
+
+    // ordem dos arquivos
+    repeated string file_order = 7;
+}
+
+message Ack {
+    string id = 1;
+
+    bool accepted = 2;
+    
+    string reason = 3;
+}
+
+service SessionService {
+    // Duplex streaming: cliente (c#) envia Sessao, servidor (Node) pode enviar Ack/controle
+    rpc StreamSessions(stream Sessao) returns (stream Ack);
+}
