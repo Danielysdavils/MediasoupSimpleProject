@@ -13,8 +13,8 @@ class Session{
         this.id = id,
         this.name = name,
         this.creator = creator,
-        this.startDateTime = new Date(startDateTime);
-        this.endDateTime = new Date(endDateTime);
+        this.startDateTime = new Date(startDateTime),
+        this.endDateTime = new Date(endDateTime),
         this.files = files, // esperado uma string com os arquivos a rep: 'files [filepath]'
         this.socket = null,
         this.status = "pending" // pending | running | finished | cancelled
@@ -23,6 +23,7 @@ class Session{
         this.producer = null;
         this.plainTransportParams = null;
         this.current = null; // ffmpeg current process
+        this.endTimer = null;
     }
 
     connectToServer(serverUrl){
@@ -51,7 +52,8 @@ class Session{
         const joinRoomResp = await this.socket.emitWithAck('joinRoom', {user: this.creator, room: this.room});
         console.log("joinRoomResp: ", joinRoomResp);
 
-        console.log("this files: ", this.files);
+        this._scheduleEnd();
+
         await this._playFile(this.files[this.index]);
     }
 
@@ -66,7 +68,7 @@ class Session{
             this.plainTransportParams = null;
         }
 
-        console.log("Reproduzindo: ", file);
+        console.log("[Session] Reproduzindo: ", file);
         
         this.plainTransportParams = await createPlainTransport(this.socket, this.room);
         console.log("PlainTransport created!");
@@ -110,24 +112,56 @@ class Session{
 
         this.current.stderr.on("data", d => console.log("[ffmpeg]: ", d.toString()));
         this.current.on("exit", async () => {
-            console.log("Ffmpeg terminoou de rep: ", file);
+            console.log("[Session] FFmpeg terminoou de reproduzir file ", file);
             await this._next();
         });
 
         setTimeout(async () => {
             if(!this.producer){
                 this.producer = await createProducerTransport(this.socket);
-                console.log("ProducerTransport created!", this.producer);
+                console.log("[Session] ProducerTransport created!", this.producer);
             }
         }, 1000);
     }
 
+    _scheduleEnd(){
+        if(this.endTimer){
+            clearTimeout(this.endTimer);
+            this.endTimer = null;
+        }
+
+        const now = new Date();
+        const delay = this.endDateTime - now;
+
+        if(delay <= 0){
+            console.log("[Session] endDateTime já passou, finalizando agora");
+            this._finish();
+            return;
+        }
+
+        const MAX_TIMEOUT = 2 ** 31 - 1;
+
+        if(delay > MAX_TIMEOUT){
+            // agenda em blocos se for muito longe
+            this.endTimer = setTimeout(() => this._scheduleEnd(), MAX_TIMEOUT);
+
+        }else{
+            this.endTimer = setTimeout(() => {
+                console.log("[Session] endDateTime atingido, encerrando sessão");
+                this._finish();
+            }, delay);
+        }
+    }
+
     async _next(){
+        if(this.status !== "running")
+            return;
+
         this.index++;
         if(this.index >= this.files.length){
-            console.log("Playlist terminou!!");
+            console.log("Playlist terminou, aguardando endDateTime");
             this.status = "finished";
-            this._finish();
+            //this._finish();
             return;
         }
 
