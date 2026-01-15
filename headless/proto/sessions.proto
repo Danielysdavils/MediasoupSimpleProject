@@ -7,22 +7,25 @@ import "google/protobuf/timestamp.proto";
 message Sessao {
     string id = 1;
 
+    // nome da sessao
     string name = 2;
 
-    // criador da sessão (Transmitter, User, Responsible, etc)
+    // criador da sessão 
     string creator = 3;
 
-    google.protobuf.Timestamp startDateTime = 4;
+    // data de inico da sessao
+    string startDateTime = 4;
 
-    google.protobuf.Timestamp endDateTime = 5;
+    string endDateTime = 5;
 
     // lista de caminhos completos dos arquivos
     repeated string files = 6;
 
     // ordem dos arquivos
-    repeated string file_order = 7;
+    repeated string fileOrder = 7;
 }
 
+// resposta do headless para c# (serverrun)
 message Ack {
     string id = 1;
 

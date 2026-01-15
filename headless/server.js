@@ -27,51 +27,60 @@ const serverUrl = "http://localhost:3031";
 
 const manager = new SessionManager(serverUrl);
 
-function timestampToDate(ts){
-    if(!ts) return null;
-    const seconds = Number(ts.seconds || 0);
-    const nanos = Number(ts.nanos || 0);
-    return new Date(seconds * 100 + Math.round(nanos / 1e6));
-}
-
 async function StreamSessions(call){
-    console.log('Novo stream conectado do cliente gRPC');
+    console.log('[server] Novo stream conectado do cliente gRPC');
     
     let inFlight = 0;
     const MAX_INFLIGHT = 2000;
 
     call.on("data", (session) => {
+        
+        if(inFlight > MAX_INFLIGHT){
+            console.log("inFlight alto: ", inFlight);
+            call.Write({
+                id: session.id,
+                accepted: false,
+                reason: "server.overloaded"
+            });
+            return;
+        }
+
         inFlight++;
+
         try{
             const sessionObj = {
                 id: session.id,
-                startDateTime: timestampToDate(session.startDateTime),
-                endDateTime: timestampToDate(session.endDateTime),
+                startDateTime: session.startDateTime,
+                endDateTime: session.endDateTime,
                 creator: session.creator,
                 files: session.files,
-                file_order: session.file_order
+                fileOrder: session.fileOrder
             }
 
+            console.log(`[server] message received ${sessionObj.files}`);
+         
             manager.addSession(sessionObj);
-            const ack = {id: sessionObj.id, accepted: true, reason: ''};
-            const ok = call.write(ack);
-            if(!ok){
-                // ADD SOME ERROR TREATMENT
-            }
+
+            call.write({ 
+                id: sessionObj.id, 
+                accepted: true, 
+                reason: '' 
+            });
         
         }catch(err){
             console.error("Erro ao processar sessao: ", err);
-            const ack = { id: session.id || '', accepted: false, reason: String(err) };
-            call.write(ack);
+
+            call.write({ 
+                id: session.id || '', 
+                accepted: false, 
+                reason: String(err) 
+            });
         
         }finally{
-            inFlight = Math.max(0, inFlight - 1);
-        }
-
-        if(inFlight > MAX_INFLIGHT){
-            console.log("inFlight alto: ", inFlight);
+            inFlight--;
         }
     });
+
     call.on('end', () => {
         console.log("Cliente encerrou o stream!");
         call.end();
@@ -83,13 +92,14 @@ async function StreamSessions(call){
 
     call.on('cancelled', () => {
         console.log("Stream cancelado pelo cliente");
-    })
+    });
 }
 
 function main(){
     const server = new grpc.Server({
         // add some propertys
     });
+
     server.addService(proto.SessionService.service, { StreamSessions });
     server.bindAsync(PORT, grpc.ServerCredentials.createInsecure(), (err, port) => {
         if(err){

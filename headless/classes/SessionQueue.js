@@ -18,13 +18,13 @@ class SessionQueue{
             throw new Error("Sessão inválida: é necessário um startDateTime valido");
         }
 
-        const start = new Date(session.startDateTime);
+        const start = session.startDateTime;
         if(isNaN(start.getTime())){
             throw new Error("startDateTime inválido");
         }
 
         let index = this.sessions.findIndex(
-            (s) => new Date(s.startDateTime) > start
+            (s) => s.startDateTime > start
         );
 
         if(index === -1){

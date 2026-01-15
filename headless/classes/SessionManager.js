@@ -17,8 +17,8 @@ class SessionManager{
         if(!session) throw new Error("não é possível adicionar sessão invalida");
         
         // o formato q o ffmpeg espera para os arquvios é uma string com - unicamente - o caminho do arquivo
-        let sessionFiles = "";
-        if(session?.files?.length) sessionFiles = this.prepareFiles(session.files);
+        let sessionFiles = [];
+        if(session?.files) sessionFiles = this.prepareFiles(session.files);
 
         // verificar como vou receber o objeto sessão aqui (*)
         const newSession = new Session(session.id, session.name, session.creator, session.startDateTime, session.endDateTime, sessionFiles, `${session.id}`);
@@ -129,16 +129,16 @@ class SessionManager{
     }
 
     // função aux para preparar os arquivos da sessão num formato compatível ffmpeg
-    prepareFiles(files = []){
-        if(!files?.length) return '';
+    prepareFiles(files){
+        let treatedFiles = files.splice(",");
 
         const isWindows = os.platform() === 'win32';
-        return files.filter(f => {
-            if(!f?.fullPath){
+        return treatedFiles.filter(path => {
+            if(!path){
                 return false;
             }
             try{
-                return fs.existsSync(f.fullPath);
+                return fs.existsSync(path);
             }catch(err){
                 console.log(`[SessionManager]: error in prepareFiles: ${err}`);
                 return false;
@@ -147,7 +147,7 @@ class SessionManager{
         .map(f => {
             console.log('f:', f);
             // Resolve para caminho absoluto
-            let resolvedPath = path.resolve(f.fullPath);
+            let resolvedPath = path.resolve(f);
             // Normaliza separadores conforme o SO
             resolvedPath = path.normalize(resolvedPath);
 

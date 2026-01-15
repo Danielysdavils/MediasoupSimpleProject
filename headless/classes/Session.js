@@ -13,8 +13,8 @@ class Session{
         this.id = id,
         this.name = name,
         this.creator = creator,
-        this.startDateTime = new Date(startDateTime),
-        this.endDateTime = new Date(endDateTime),
+        this.startDateTime = new Date(startDateTime);
+        this.endDateTime = new Date(endDateTime);
         this.files = files, // esperado uma string com os arquivos a rep: 'files [filepath]'
         this.socket = null,
         this.status = "pending" // pending | running | finished | cancelled

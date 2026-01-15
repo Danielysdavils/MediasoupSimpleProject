@@ -27,7 +27,6 @@ const config = {
                 "useinbandfec": 1,
                 "usedtx": 1,
                 "stereo": 0
-
             }
         },
         // {
