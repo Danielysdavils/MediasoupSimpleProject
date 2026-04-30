@@ -2,11 +2,11 @@ const { io } = require("socket.io-client");
 const { spawn } = require("child_process");
 const path = require("path");
 
-const createPlainTransport = require('../mediaSoupFunctions/createPlainTransport')
 const createProducerTransport = require("../mediaSoupFunctions/createProducerTransport")
 const closeProducerTransport = require("../mediaSoupFunctions/closeProducerTransport")
 const closePlainTransport = require("../mediaSoupFunctions/closePlainTransport")
 const closeRoom = require("../mediaSoupFunctions/closeRoom")
+
 
 class Session{
     constructor(id, name, creator, startDateTime, endDateTime, files, room){
@@ -21,17 +21,25 @@ class Session{
         this.room = room
         this.index = 0
         this.producer = null;
-        this.plainTransportParams = null;
+        this.AudioplainTransportParams = null;
+        this.VideoPlainTransportParams = null;
         this.current = null; // ffmpeg current process
         this.endTimer = null;
     }
 
     connectToServer(serverUrl){
+        console.log(`connecting to ${serverUrl}`);
         if(this.socket) return;
 
+        console.log("creating?")
         this.socket = io(serverUrl, {
+            //path: "/signaling/socket.io/",
             transports: ["websocket"],
-            reconnection: true,
+            rejectUnauthorized: false,
+            //secure: true,
+            //reconnection: true,
+            //reconnectionAttempts: Infinity,
+            //reconnectionDelayMax: 2000,
         });
 
         this.socket.on("connect", () => {
@@ -41,6 +49,10 @@ class Session{
         this.socket.on("disconnect", () => {
             console.log(`[Session ${this.id}] disconnected from ${serverUrl}`);
         });
+
+        this.socket.on("connect_error", (err) => {
+            console.log(`[Session ${this.id}] error connection: ${err}`);
+        })
     }
 
     async start(){
@@ -49,36 +61,68 @@ class Session{
         this.status = "running";
 
         console.log("[session]: calling joinroom");
-        const joinRoomResp = await this.socket.emitWithAck('joinRoom', {user: this.creator, room: this.room});
+        const joinRoomResp = await this.socket.emitWithAck('session:joinPlain', {
+            sessionId: this.room, 
+            serialNumber: this.creator
+        });
+
         console.log("joinRoomResp: ", joinRoomResp);
+        this.AudioplainTransportParams = joinRoomResp.AudioPlainTransport;
+        this.VideoPlainTransportParams = joinRoomResp.VideoPlainTransport;
 
         this._scheduleEnd();
+
+        console.log(this.files);
 
         await this._playFile(this.files[this.index]);
     }
 
     async _playFile(file){
+        console.log("[Session] Reproduzindo: ", file);
+        
+        if(this.AudioplainTransportParams || this.VideoPlainTransportParams){
+            console.log("init closing transports!");
+            await closePlainTransport(this.socket);
+            this.AudioplainTransportParams = null;
+            this.VideoPlainTransportParams = null;
+            console.log("closing transports!");
+        }
+
+        console.log("init join");
+        const joinRoomResp = await this.socket.emitWithAck('session:joinPlain', {
+            sessionId: this.room, 
+            serialNumber: this.creator
+        });
+
+        console.log("joinRoomResp: ", joinRoomResp);
+        this.AudioplainTransportParams = joinRoomResp.AudioPlainTransport;
+        this.VideoPlainTransportParams = joinRoomResp.VideoPlainTransport;        
+
         // fecha os producers abertos
         if(this.producer){
+            console.log("closing older producer");
             await closeProducerTransport(this.socket);
             this.producer = null;
         }
-        if(this.plainTransportParams){
-            await closePlainTransport(this.socket);
-            this.plainTransportParams = null;
-        }
 
-        console.log("[Session] Reproduzindo: ", file);
-        
-        this.plainTransportParams = await createPlainTransport(this.socket, this.room);
-        console.log("PlainTransport created!");
+        console.log("[Session] creating producers!");
+        this.producer = await createProducerTransport(this.socket);
 
-        const { video_ip, video_port, video_rtcpPort, audio_ip, audio_port, audio_rtcpPort } = this.plainTransportParams;
+        const a_ip = this.AudioplainTransportParams?.ip;
+        const a_port = this.AudioplainTransportParams?.port;
+        const a_rtcpPort = this.AudioplainTransportParams?.rtcpPort;
+
+        const v_ip = this.VideoPlainTransportParams?.ip;
+        const v_port = this.VideoPlainTransportParams?.port;
+        const v_rtcpPort = this.VideoPlainTransportParams?.rtcpPort;
 
         const args = [
+            "-loglevel", "info",
+            "-report",
+
             "-re",
             "-i", file,
-
+            
             // AUDIO
             "-map", "0:a:0?",
             "-c:a", "libopus",
@@ -86,7 +130,7 @@ class Session{
             "-ar", "48000",
             "-ac", "2",
             "-payload_type", "101",
-           "-ssrc", "11111111",
+            "-ssrc", "11111111",
 
             // melhora sincronização do áudio
             "-af", "aresample=async=1:first_pts=0",
@@ -94,6 +138,7 @@ class Session{
             // VIDEO
             "-map", "0:v:0?",
             "-c:v", "libvpx",
+
             "-b:v", "1000k",
             "-deadline", "realtime",
             "-cpu-used", "4",
@@ -104,8 +149,8 @@ class Session{
             "-vsync", "1",
 
             "-f", "tee",
-            `[select=a:f=rtp:ssrc=11111111:payload_type=101]rtp://${audio_ip}:${audio_port}?rtcpport=${audio_rtcpPort}|` +
-            `[select=v:f=rtp:ssrc=22222222:payload_type=102]rtp://${video_ip}:${video_port}?rtcpport=${video_rtcpPort}`
+            `[select=a:f=rtp:ssrc=11111111:payload_type=101]rtp://${a_ip}:${a_port}?rtcpport=${a_rtcpPort}|` +
+            `[select=v:f=rtp:ssrc=22222222:payload_type=102]rtp://${v_ip}:${v_port}?rtcpport=${v_rtcpPort}`
         ];
 
         this.current = spawn("ffmpeg", args);
@@ -115,13 +160,6 @@ class Session{
             console.log("[Session] FFmpeg terminoou de reproduzir file ", file);
             await this._next();
         });
-
-        setTimeout(async () => {
-            if(!this.producer){
-                this.producer = await createProducerTransport(this.socket);
-                console.log("[Session] ProducerTransport created!", this.producer);
-            }
-        }, 1000);
     }
 
     _scheduleEnd(){

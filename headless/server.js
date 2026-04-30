@@ -23,7 +23,7 @@ const proto = grpc.loadPackageDefinition(packageDef).sessions;
 
 const PORT = process.env.GRPC_PORT || "0.0.0.0:50051";
 
-const serverUrl = "http://localhost:3031";
+const serverUrl = "https://siris.local:3031";
 
 const manager = new SessionManager(serverUrl);
 

@@ -22,6 +22,7 @@ class SessionManager{
 
         // verificar como vou receber o objeto sessão aqui (*)
         const newSession = new Session(session.id, session.name, session.creator, session.startDateTime, session.endDateTime, sessionFiles, `${session.id}`);
+        
         newSession.connectToServer(this.serverUrl); // pro baleanceamento de carga bom adicionar dif servers!
         
         this.sessionsList.addSession(newSession);

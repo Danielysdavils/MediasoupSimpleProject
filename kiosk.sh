@@ -20,8 +20,8 @@ sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' /home/pi/.config/chromium
   --user-data-dir=/tmp/kiosk_profile \
   --lang=en-US \
   --accept-lang=en-US \
-  --kiosk http://localhost:5173 \ 
-  --unsafely-treat-insecure-origin-as-secure=http://localhost:5173 \
+  --kiosk https://localhost:8080 \ 
+  --unsafely-treat-insecure-origin-as-secure=https://localhost:8080 \
   --user-agent="kioskoBrowser" \
   --autoplay-policy=no-user-gesture-required \
   --use-fake-ui-for-media-stream \
