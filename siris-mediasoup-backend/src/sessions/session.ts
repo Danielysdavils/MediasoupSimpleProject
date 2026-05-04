@@ -272,6 +272,7 @@ export class Session {
     if (peer) {
       for (const t of peer.all.values()) {
         try {
+          console.log("Closing t id: ", t.id);
           t.close?.();
         } catch {}
       }

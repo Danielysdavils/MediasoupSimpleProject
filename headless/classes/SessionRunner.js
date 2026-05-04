@@ -1,5 +1,6 @@
 const MediaSoupClient = require("./MediaSoupClient");
 const FFmpegService = require("./FFmpegService");
+const TaskQueue = require("./TaskQueue");
 
 /**
  * Gestiona a reprodução da sessão usando ffmpeg e injeta no servidor mediasoup
@@ -18,8 +19,12 @@ class SessionRunner {
         // ffmpeg service  (transmissão ffmpef)
         this.ffmpeg = new FFmpegService();
 
+        // queue de ordem de processos async
+        this.queue = new TaskQueue();
+
         this.cancelled = false;
         this.endTimer = null;
+        this.cleanedUp = false;
     }
 
     async run(){
@@ -28,11 +33,15 @@ class SessionRunner {
 
             this.session.status = "running";
 
-            // conecta com servidor signaling
-            await this.mediaSoup.connect();
+            // prioridade de execução primaria. 
+            // antes de inicializar ffmpeg precisamos garantir conexão
+            await this.queue.add(async () => {
+                // conecta com servidor signaling
+                await this.mediaSoup.connect();
 
-            // agenda o fim da sessão (caso termine antes)
-            this._scheduleEnd();
+                // agenda o fim da sessão (caso termine antes)
+                this._scheduleEnd();
+            });
 
             // inicia a reprodução de cada arquivo
             while(!this.cancelled){
@@ -50,28 +59,40 @@ class SessionRunner {
                     break;
                 }
 
-                console.log(`[Runner] playing ${file}`);
-
-                // limpa o estado do mediasoup (transport's e producers)
-                await this.mediaSoup.resetPipeline();
-
-                // audio e video params
-                const rtpParams = this.mediaSoup.getRtpParams();
-
-                // inicia a transmissão ffmpeg
-                await this.ffmpeg.start(file, rtpParams);
+                await this._playFile(file);
 
                 this.session.index++;
             }
             console.log(`[Runner] session finished`);
-            this.session.status = "finished";
-
+            //this.session.status = "finished";
+        
         }catch(e){
             console.log(`[Runner] error `, e);
 
         }finally{
             await this.cleanup();
         }
+    }
+
+    /**
+     * Garante reprodução de arquivo
+     * @param {*} file 
+     */
+    async _playFile(file){
+        return this.queue.add(async () => {
+            if(this.cancelled) return;
+
+            console.log(`[Runner] playing ${file}`);
+
+            // limpa o estado do mediasoup (transport's e producers)
+            await this.mediaSoup.resetPipeline();
+
+            // audio e video params
+            const rtpParams = this.mediaSoup.getRtpParams();
+
+            // inicia a transmissão ffmpeg
+            await this.ffmpeg.start(file, rtpParams);
+        });
     }
 
     /**
@@ -125,16 +146,34 @@ class SessionRunner {
 
     cancel(){
         this.cancelled = true;
-        this.ffmpeg.stop(); // mata imediatamente
+
+        this.queue.add(async () => {
+            console.log("[Runner] cancel");
+            this.ffmpeg.stop(); // mata imediatamente
+        });
     }
 
     /**
      * Clean all data for ffmpeg and mediasoup
      */
     async cleanup(){
-        console.log(`[Runner] cleanup`);
-        this.ffmpeg.stop();
-        await this.mediaSoup.cleanup();
+        return this.queue.add(async () => {
+            if(this.cleanedUp) return;
+            this.cleanedUp = true;
+
+            console.log("[Runner] cleanup");
+
+            this.ffmpeg.stop();
+
+            await this.mediaSoup.cleanup();
+
+            if(this.endTimer){
+                clearTimeout(this.endTimer);
+                this.endTimer = null;
+            }
+
+            this.session.status = this.cancelled ? "cancelled" : "finished";
+        });
     }
 }
 

@@ -156,6 +156,7 @@ class SessionManager{
 
     // função aux para preparar os arquivos da sessão num formato compatível ffmpeg
     prepareFiles(files){
+        console.log("files in prepare files ", files);
         let treatedFiles = files.splice(",");
 
         const isWindows = os.platform() === 'win32';

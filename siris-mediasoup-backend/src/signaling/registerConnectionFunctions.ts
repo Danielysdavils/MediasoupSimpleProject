@@ -17,6 +17,8 @@ export function registerConnectionFunctions(
     const sessionId = socket.data.sessionId;
     const serial = socket.data.seialNumber;
 
+    console.log("socket ", socket.data);
+
     if(sessionId && serial){
       const session = deps.sessionManager.get(sessionId);
       session?.markDisconnected(serial);
