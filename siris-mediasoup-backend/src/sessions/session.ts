@@ -33,6 +33,9 @@ export class Session {
   // ✅ proteção: serial conectado (não entra 2x)
   private readonly connectedSerials = new Set<string>();
 
+  // lista interna de peers desconetados - fechar signaling, transport's, etc.
+  private disconnectedTimers = new Map<string, NodeJS.Timeout>();
+
   // ✅ transports por serial
   private readonly transportsBySerial = new Map<string, PeerTransports>();
 
@@ -66,6 +69,31 @@ export class Session {
 
   markLeft(serial: string) {
     this.connectedSerials.delete(serial);
+  }
+
+  markDisconnected(serial:string){
+    if (this.disconnectedTimers.has(serial)) return;
+
+    const timer = setTimeout(async () => {
+      console.log("Peer cleanup by timeout!", serial);
+
+      await this.closePeer(serial);
+      this.markLeft(serial);
+      
+      this.disconnectedTimers.delete(serial);
+    }, 50000);
+
+    this.disconnectedTimers.set(serial, timer);
+  }
+
+  markReconnected(serial:string){
+    const timer = this.disconnectedTimers.get(serial);
+    if(timer){
+      clearTimeout(timer);
+      this.disconnectedTimers.delete(serial);
+
+      console.log("Reconnect cancel cleanup", serial);
+    }
   }
 
   // ---------------------------

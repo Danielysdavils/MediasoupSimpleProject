@@ -112,7 +112,7 @@ export function registerSessionFunctions(
     }
   });
 
-  socket.on("session:left", async (reason: string) => {
+  socket.on("session:left", async (reason: string, ack?:Function) => {
     try {
       const sessionId = String(socket.data?.sessionId || "").trim();
       const serialNumber = String(socket.data?.serialNumber || "").trim();
@@ -132,8 +132,12 @@ export function registerSessionFunctions(
         sessionId,
         serialNumber,
       });
+
+      ack?.({ok: true});
     } catch (e) {
-      logger.warn("disconnect cleanup failed", { id: socket.id, err: String(e) });
+      const err = String(e);
+      logger.warn("disconnect cleanup failed", { id: socket.id, err });
+      ack?.({ok:false, code:err});
     }
   });
 }

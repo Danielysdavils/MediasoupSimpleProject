@@ -36,7 +36,7 @@ async function main() {
 
   io.on("connection", (socket: any) => {
     logger.info("socket connected", { id: socket.id });
-    registerConnectionFunctions(socket);
+    registerConnectionFunctions(socket, { sessionManager });
     registerSessionFunctions(socket, { sessionManager });
     registerDebugFunctions(socket, { workerPool, sessionManager });
     registerTransportFunctions(socket, { sessionManager });

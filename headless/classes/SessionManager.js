@@ -4,15 +4,21 @@ const os = require ("os")
 
 const Session = require("./Session");
 const SessionQueue = require("./SessionQueue");
+const SessionRunner = require("./SessionRunner");
 
 class SessionManager{
     constructor(serverUrl){
-        this.serverUrl = serverUrl,
+        this.serverUrl = serverUrl;
+
+        // controle de sessões enfileiradas - prestes a iniciar
         this.sessionsList = new SessionQueue();
         this.currentTimer = null;
+
+        // controle de sessões rodando - em execução
+        this.runningSessions = new Map();
     }
 
-    // adiciona sessão à fila global
+    // adiciona sessão à fila global de espera
     addSession(session){
         if(!session) throw new Error("não é possível adicionar sessão invalida");
         
@@ -20,10 +26,9 @@ class SessionManager{
         let sessionFiles = [];
         if(session?.files) sessionFiles = this.prepareFiles(session.files);
 
-        // verificar como vou receber o objeto sessão aqui (*)
         const newSession = new Session(session.id, session.name, session.creator, session.startDateTime, session.endDateTime, sessionFiles, `${session.id}`);
         
-        newSession.connectToServer(this.serverUrl); // pro baleanceamento de carga bom adicionar dif servers!
+        //newSession.connectToServer(this.serverUrl); // pro baleanceamento de carga bom adicionar dif servers!
         
         this.sessionsList.addSession(newSession);
         console.log(`[SessionManager]: sessão ${session.id} adicionada com sucesso!`);
@@ -38,7 +43,10 @@ class SessionManager{
 
     // atualiza sessão pasada no param
     updateSession(sessionId, session){
-        if(!this.sessionsList.existSession(sessionId)) throw new Error("Tentando atualizar sessão não existente!");
+        if(!this.sessionsList.existSession(sessionId)){
+            console.log(`[SessionManager]: Sessão não existe na fila`);
+            return;
+        }
         
         try{
             let sessionFiles = "";
@@ -61,25 +69,33 @@ class SessionManager{
     // inicia sessão pronta pra começar
     startSession(session){
         if(!session){
-            console.log("Tentando reproduzir sessão invalida!");
+            console.log(`[SessionManager] Tentando reproduzir sessão inválida`);
             return;
         }
 
-        if(session.status === "running"){
-            console.log(`[SessionManager]: Sessão ${session.id} já está em execução. Ignorando!`);
+        if(this.runningSessions.has(session.id)){
+            console.log(`[SessionManager] Sessão ${session.id} já está rodando`);
             return;
         }
 
         try{          
-            console.log(`[SessionManager]: Iniciando sessão ${session.id}...`);
+            console.log(`[SessionManager]: Iniciando sessão ${session.id}`);
             this.sessionsList.removeSession(session.id);
-            session.start();
+
+            const runner = new SessionRunner(session, this.serverUrl);
+            this.runningSessions.set(session.id, runner);
+
+            runner.run().finally(() => {
+                console.log(`[SessionManager]: Sessão ${session.id} finalizada!`);
+                this.runningSessions.delete(session.id);
+            });
+
         }catch(err){
             console.log(`[SessionManager]: erro ao inciar sessão. ${err}`);
+        
+        }finally{
+            this.scheduleNextSession();
         }
-
-        // reprogramo a próx sessão a ser iniciada
-        this.scheduleNextSession();
     }
 
     // verifica e incia a prox sessão a começar
@@ -96,6 +112,7 @@ class SessionManager{
         }
 
         const nextSession = this.sessionsList.getNextSession();
+
         const now = new Date();
         let delay = nextSession.startDateTime - now;
 
@@ -107,26 +124,34 @@ class SessionManager{
         const MAX_TIMEOUT = 2 ** 31 - 1;
         delay = Math.min(delay, MAX_TIMEOUT);
 
-        console.log("delay: ", delay)
         console.log(`[SessionManager]: Prox sessão ${nextSession.id} agendada para ${nextSession.startDateTime}`);
 
         this.currentTimer = setTimeout(() => {
-            console.log(`chegou a hora de reproducir a sessaõ: ${nextSession.id}...!!`);
+            console.log(`[SessionManager]: Chegou a hora de reproducir a sessaõ: ${nextSession.id}`);
             this.startSession(nextSession);
         }, delay);
     }
 
     // remove e deleta sessão especificada no param
     cancelSession(sessionId){
+        // se está na fila - ou seja, esperando
         if(this.sessionsList.existSession(sessionId)){
-            let toDeleteSession = this.sessionsList.removeSession(sessionId);
-            if(toDeleteSession) toDeleteSession.cancel();
+            this.sessionsList.removeSession(sessionId);
 
-            console.log(`[SessionManager] Sessão ${id} cancelada`);
+            console.log(`[SessionManager] Sessão ${sessionId} removida da fila`);
             this.scheduleNextSession();
-        }else{
-            console.log(`[SessionManager]: tentando deletar sessão inválida`);
+            return;
         }
+
+        // se está em execução
+        if(this.runningSessions.has(sessionId)){
+            const runner = this.runningSessions.get(sessionId);
+            runner.cancel();
+            console.log(`[SessionManager] Sessão ${sessionId} cancelada em execução`);
+            return;
+        }
+
+        console.log(`[SessionManager]: Sessão não encontrada!`);
     }
 
     // função aux para preparar os arquivos da sessão num formato compatível ffmpeg
