@@ -16,6 +16,21 @@ class SessionManager{
 
         // controle de sessões rodando - em execução
         this.runningSessions = new Map();
+
+        // controla a última versão recebida por sessão
+        this.sessionVersions = new Map();
+    }
+
+    acceptVersion(sessionId, incomingVersion){
+        const currentVersion = this.sessionVersions.get(sessionId) ?? 0;
+
+        if(incomingVersion <= currentVersion){
+            console.log(`[SessionManager] Evento antigo ignorado. session=${sessionId}, incoming=${incomingVersion}, current=${currentVersion}`);
+            return false;
+        }
+
+        this.sessionVersions.set(sessionId, incomingVersion);
+        return true;
     }
 
     // adiciona sessão à fila global de espera
@@ -43,26 +58,50 @@ class SessionManager{
 
     // atualiza sessão pasada no param
     updateSession(sessionId, session){
-        if(!this.sessionsList.existSession(sessionId)){
-            console.log(`[SessionManager]: Sessão não existe na fila`);
-            return;
-        }
-        
         try{
             let sessionFiles = "";
-            if(session?.files?.length) sessionFiles = this.prepareFiles(session.files);
+            if(session?.files?.length) 
+                sessionFiles = this.prepareFiles(session.files);
 
             const updatedSession = new Session(sessionId, session.name, session.creator, session.startDateTime, session.endDateTime, sessionFiles, `${sessionId}`);
-            this.sessionsList.updateSession(sessionId, updatedSession);
             
-            console.log(`[SessionManager]: sessão atualizada com sucesso!`);
-            this.sessionsList.getAll();
+            if(this.sessionsList.existSession(sessionId)){
+                this.sessionsList.updateSession(sessionId, updatedSession);
+            
+                console.log(`[SessionManager]: sessão atualizada com sucesso!`);
+                this.sessionsList.getAll();
 
-            console.log(`[SessionManager]: reagendando sessões!`);
+                console.log(`[SessionManager]: reagendando sessões!`);
+                this.scheduleNextSession();
+
+                return;
+            }
+           
+            if(this.runningSessions.has(sessionId)){
+                const runner = this.runningSessions.get(sessionId);
+                console.log(
+                    `[SessionManager]: sessão ${sessionId} está rodando. Reiniciando por update.`
+                );
+
+                runner.cancel();
+
+                this.runningSessions.delete(sessionId);
+
+                this.sessionsList.addSession(updatedSession);
+                this.scheduleNextSession();
+
+                return;
+            }
+
+            console.log(
+                `[SessionManager]: sessão ${sessionId} não existia. Tratando update como add.`
+            );
+
+            this.sessionsList.addSession(updatedSession);
             this.scheduleNextSession();
-
+            
         }catch(err){
-            console.log(`[SessionManager]: Erro tentando atualizar a sessão!`);
+            console.log(`[SessionManager]: Erro tentando atualizar a sessão ${sessionId}`, err);
         }
     }
 
@@ -138,6 +177,8 @@ class SessionManager{
         if(this.sessionsList.existSession(sessionId)){
             this.sessionsList.removeSession(sessionId);
 
+            this.sessionVersions.delete(sessionId);
+
             console.log(`[SessionManager] Sessão ${sessionId} removida da fila`);
             this.scheduleNextSession();
             return;
@@ -146,11 +187,17 @@ class SessionManager{
         // se está em execução
         if(this.runningSessions.has(sessionId)){
             const runner = this.runningSessions.get(sessionId);
+            
             runner.cancel();
+            
+            this.runningSessions.delete(sessionId);
+            this.sessionVersions.delete(sessionId);
+
             console.log(`[SessionManager] Sessão ${sessionId} cancelada em execução`);
             return;
         }
 
+        this.sessionVersions.delete(sessionId);
         console.log(`[SessionManager]: Sessão não encontrada!`);
     }
 

@@ -136,21 +136,13 @@ class SessionRunner {
         }, delay);
     }
 
-    pause(){
-
-    }
-
-    resume(){
-
-    }
-
     cancel(){
+        if(this.cancelled) return;
+
         this.cancelled = true;
 
-        this.queue.add(async () => {
-            console.log("[Runner] cancel");
-            this.ffmpeg.stop(); // mata imediatamente
-        });
+        console.log("[Runner] cancel");
+        this.ffmpeg.stop(); // mata imediatamente
     }
 
     /**

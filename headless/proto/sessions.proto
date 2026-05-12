@@ -5,8 +5,6 @@ package sessions;
 import "google/protobuf/timestamp.proto";
 
 message Sessao {
-    string id = 1;
-
     // nome da sessao
     string name = 2;
 
@@ -16,25 +14,45 @@ message Sessao {
     // data de inico da sessao
     string startDateTime = 4;
 
+    // data de fim da sessão
     string endDateTime = 5;
 
-    // lista de caminhos completos dos arquivos
+    // lista de caminhos completos dos arquivos. 
+    // (!) Considera fileOrder
     repeated string files = 6;
-
-    // ordem dos arquivos
-    repeated string fileOrder = 7;
 }
+
+
+message SessionEvent {
+    string id  = 1; // id da sessão
+    int64 version = 2; // evita race condition
+
+    oneof payload {
+        SessionCreated created = 10;
+        SessionUpdated updated = 11; // pode alterar data de inicio/fim ou arquivos
+        SessionDeleted deleted = 14;
+    }
+}
+
+message SessionCreated {
+    Sessao full = 1;
+}
+
+message SessionUpdated {
+    Sessao full = 1;
+}
+
+message SessionDeleted {}
+
 
 // resposta do headless para c# (serverrun)
 message Ack {
     string id = 1;
-
     bool accepted = 2;
-    
     string reason = 3;
 }
 
 service SessionService {
     // Duplex streaming: cliente (c#) envia Sessao, servidor (Node) pode enviar Ack/controle
-    rpc StreamSessions(stream Sessao) returns (stream Ack);
+    rpc StreamSessions(stream SessionEvent) returns (stream Ack);
 }

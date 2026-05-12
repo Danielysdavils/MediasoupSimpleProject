@@ -33,10 +33,15 @@ async function StreamSessions(call){
     let inFlight = 0;
     const MAX_INFLIGHT = 2000;
 
-    call.on("data", (session) => {
+    call.on("data", (eventSession) => {
+        console.log(eventSession);
+        const sessionId = eventSession?.id ?? '';
+
+        console.log(`[server] Evento recebido para sessão ${sessionId}`, eventSession);
         
         if(inFlight > MAX_INFLIGHT){
             console.log("inFlight alto: ", inFlight);
+
             call.Write({
                 id: session.id,
                 accepted: false,
@@ -48,21 +53,60 @@ async function StreamSessions(call){
         inFlight++;
 
         try{
-            const sessionObj = {
-                id: session.id,
-                startDateTime: session.startDateTime,
-                endDateTime: session.endDateTime,
-                creator: session.creator,
-                files: session.files,
-                fileOrder: session.fileOrder
+            if(!sessionId) throw new Error("missing.session.id");
+
+            const version = Number(eventSession.version ?? 0);
+
+            if(!manager.acceptVersion(sessionId, version)){
+                call.write({
+                    id: sessionId,
+                    accepted: false,
+                    reason: "stale.event"
+                });
+                return;
             }
 
-            console.log(`[server] message received ${sessionObj.files}`);
-         
-            manager.addSession(sessionObj);
+            /**
+             * EVENTO: NOVA SESSÃO ENTRANDO
+             */
+            if(eventSession.created){
+                const sessionObj = normalizeGrpcSessions(sessionId, eventSession.created.full);
+                console.log(
+                    `[server] CREATED recebido para sessão ${sessionId}. Files=${sessionObj.files.length}`
+                );
+                manager.addSession(sessionObj);
+            }
+
+
+            /**
+             * EVENTO: SESSÃO PARA ATUALIZAR
+             */
+            else if(eventSession.updated){
+                const sessionObj = normalizeGrpcSessions(sessionId, eventSession.updated.full);
+                console.log(
+                    `[server] UPDATED recebido para sessão ${sessionId}. Files=${sessionObj.files.length}`
+                );
+                manager.updateSession(sessionId, sessionObj);
+            }
+
+            /**
+             * EVENTO: SESSÃO A DELETAR
+             *  -> Só precisa do id da sessão
+             */
+            else if(eventSession.deleted){
+                console.log(
+                    `[server] DELETED recebido para sessão ${sessionId}`
+                );
+
+                manager.cancelSession(sessionId);
+            }
+
+            else{
+                throw new Error("unknown.session.event");
+            }
 
             call.write({ 
-                id: sessionObj.id, 
+                id: sessionId, 
                 accepted: true, 
                 reason: '' 
             });
@@ -71,9 +115,9 @@ async function StreamSessions(call){
             console.error("Erro ao processar sessao: ", err);
 
             call.write({ 
-                id: session.id || '', 
+                id: sessionId, 
                 accepted: false, 
-                reason: String(err) 
+                reason: String(err?.message ?? err) 
             });
         
         }finally{
@@ -109,6 +153,17 @@ function main(){
         server.start();
         console.log(`gRPC server ouvindo em ${PORT}`);
     });
+}
+
+function normalizeGrpcSessions(sessionId, grpcSession){
+    return {
+        id: sessionId,
+        name: grpcSession.name,
+        creator: grpcSession.creator,
+        startDateTime: grpcSession.startDateTime,
+        endDateTime: grpcSession.endDateTime,
+        files: grpcSession.files ?? []
+    };
 }
 
 if(require.main == module) main();
