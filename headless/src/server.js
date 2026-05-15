@@ -7,9 +7,9 @@
 const grpc = require("@grpc/grpc-js")
 const protoLoader =  require("@grpc/proto-loader")
 const path = require("path")
-const SessionManager = require("./classes/SessionManager")
+const SessionManager = require("../classes/SessionManager")
 
-const PROTO_PATH = path.join(__dirname, 'proto', 'sessions.proto');
+const PROTO_PATH = path.join(__dirname, '../proto', 'sessions.proto');
 
 const packageDef = protoLoader.loadSync(PROTO_PATH, {
     keepCase: false,
@@ -21,9 +21,13 @@ const packageDef = protoLoader.loadSync(PROTO_PATH, {
 
 const proto = grpc.loadPackageDefinition(packageDef).sessions;
 
-const PORT = process.env.GRPC_PORT || "0.0.0.0:50051";
+const PORT = process.env.GRPC_PORT || "127.0.0.1:50051";
 
-const serverUrl = "https://siris.local:3031";
+// (!) para teste local
+//const serverUrl = "https://siris.local:3031";
+
+// para deploy servidor desenvolvimento
+const serverUrl = "https://siris.dyndns.org";
 
 const manager = new SessionManager(serverUrl);
 
@@ -43,7 +47,7 @@ async function StreamSessions(call){
             console.log("inFlight alto: ", inFlight);
 
             call.Write({
-                id: session.id,
+                id: sessionId,
                 accepted: false,
                 reason: "server.overloaded"
             });
@@ -147,11 +151,38 @@ function main(){
     server.addService(proto.SessionService.service, { StreamSessions });
     server.bindAsync(PORT, grpc.ServerCredentials.createInsecure(), (err, port) => {
         if(err){
-            console.log("Erro bind gRPC: ", err);
-            return;
+            console.error("[Headless] Erro bind gRPC:", err);
+            process.exit(1);
         }
+
         server.start();
         console.log(`gRPC server ouvindo em ${PORT}`);
+    });
+
+    process.on("SIGINT", () => {
+        console.log("[Headless] SIGINT recebido. Encerrando gRPC...");
+        server.tryShutdown((err) => {
+            if (err) {
+                console.error("[Headless] Erro ao encerrar:", err);
+                process.exit(1);
+            }
+
+            console.log("[Headless] gRPC encerrado com sucesso.");
+            process.exit(0);
+        });
+    });
+
+    process.on("SIGTERM", () => {
+        console.log("[Headless] SIGTERM recebido. Encerrando gRPC...");
+        server.tryShutdown((err) => {
+            if (err) {
+                console.error("[Headless] Erro ao encerrar:", err);
+                process.exit(1);
+            }
+
+            console.log("[Headless] gRPC encerrado com sucesso.");
+            process.exit(0);
+        });
     });
 }
 

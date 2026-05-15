@@ -4,18 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node headless.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@grpc/grpc-js": "^1.14.2",
     "@grpc/proto-loader": "^0.8.0",
+    "dotenv": "^17.4.2",
     "express": "^5.1.0",
     "mediasoup-client": "^3.18.0",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1",
-    "wrtc": "^0.4.7"
+    "socket.io-client": "^4.8.1"
   }
 }

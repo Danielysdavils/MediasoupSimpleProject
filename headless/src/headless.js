@@ -3,6 +3,7 @@
     Version: v0.0.1
     creator: Danielys Davila
 */
+require("dotenv").config();
 
 const server = require('./server')
 

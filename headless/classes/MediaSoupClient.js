@@ -26,15 +26,26 @@ class MediaSoupClient {
         console.log(`[MediasoupClient] connecting to server ${this.serverUrl}`);
 
         if(this.socket) return;
+        // (!) para deploy servidor deixar assim
         this.socket = io(this.serverUrl, {
-            //path: "/signaling/socket.io/",
+            path: "/signaling2/socket.io/",
             transports: ["websocket"],
-            rejectUnauthorized: false,
-            //secure: true,
-            //reconnection: true,
-            //reconnectionAttempts: Infinity,
-            //reconnectionDelayMax: 2000,
+            secure: true,
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelayMax: 2000,
         });
+
+        // (!) para teste local deixar assim
+        // this.socket = io(this.serverUrl, {
+        //     //path: "/signaling/socket.io/",
+        //     transports: ["websocket"],
+        //     rejectUnauthorized: false,
+        //     //secure: true,
+        //     //reconnection: true,
+        //     //reconnectionAttempts: Infinity,
+        //     //reconnectionDelayMax: 2000,
+        // });
 
         this.socket.on("connect", () => {
             console.log(`[Session ${this.sessionId}] connected to ${this.serverUrl}!`);

@@ -12,8 +12,8 @@ function str(name: string, def?: string): string | undefined {
 }
 
 export const env = {
-  // server
-  port: num("PORT", 3031),
+  // server 2
+  port: num("PORT", 3032),
   corsOrigin: str("CORS_ORIGIN", "*"),
 
   // mediasoup
@@ -22,6 +22,6 @@ export const env = {
   listenIp: str("MEDIASOUP_LISTEN_IP", "0.0.0.0")!,
   announcedIp: str("MEDIASOUP_ANNOUNCED_IP"),
 
-  rtcMinPort: num("RTC_MIN_PORT", 40000),
-  rtcMaxPort: num("RTC_MAX_PORT", 41000),
+  rtcMinPort: num("RTC_MIN_PORT", 41001),
+  rtcMaxPort: num("RTC_MAX_PORT", 42000),
 };
