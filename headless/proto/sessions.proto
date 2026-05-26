@@ -19,9 +19,26 @@ message Sessao {
 
     // lista de caminhos completos dos arquivos. 
     // (!) Considera fileOrder
-    repeated string files = 6;
+    repeated MediaFile files = 6;
 }
 
+message MediaFile {
+    // Caminho efetivo que o headless deve reproduzir.
+    // Pode apontar para original/* ou prepared/*.
+    string path = 1;
+
+    // Nome original do arquivo, útil para logs/debug.
+    string originalName = 2;
+
+    // Estratégia que o headless deve usar.
+    PlaybackMode playbackMode = 3;
+}
+
+enum PlaybackMode {
+    PLAYBACK_MODE_UNSPECIFIED = 0;
+    COPY_PREPARED = 1;
+    TRANSCODE_REALTIME = 2;
+}
 
 message SessionEvent {
     string id  = 1; // id da sessão

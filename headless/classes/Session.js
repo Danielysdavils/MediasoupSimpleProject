@@ -6,7 +6,7 @@ class Session{
         this.creator = creator;
         this.startDateTime = new Date(startDateTime);
         this.endDateTime = new Date(endDateTime);
-        this.files = files; // esperado uma string com os arquivos a rep: 'files [filepath]'
+        this.files = files; 
         this.status = "pending"; // pending | running | finished | cancelled
         this.room = room;
         this.index = 0;

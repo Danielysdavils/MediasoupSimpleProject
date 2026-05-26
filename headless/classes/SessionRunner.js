@@ -91,7 +91,7 @@ class SessionRunner {
             const rtpParams = this.mediaSoup.getRtpParams();
 
             // inicia a transmissão ffmpeg
-            await this.ffmpeg.start(file, rtpParams);
+            await this.ffmpeg.start(file.path, rtpParams, file.playbackMode);
         });
     }
 

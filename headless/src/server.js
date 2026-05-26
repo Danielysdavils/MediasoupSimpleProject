@@ -24,12 +24,14 @@ const proto = grpc.loadPackageDefinition(packageDef).sessions;
 const PORT = process.env.GRPC_PORT || "127.0.0.1:50051";
 
 // (!) para teste local
-//const serverUrl = "https://siris.local:3031";
+const serverUrl = "https://siris.local:3031";
 
 // para deploy servidor desenvolvimento
-const serverUrl = "https://siris.dyndns.org";
+//const serverUrl = "https://siris.dyndns.org";
 
 const manager = new SessionManager(serverUrl);
+
+let shuttingDown = false;
 
 async function StreamSessions(call){
     console.log('[server] Novo stream conectado do cliente gRPC');
@@ -161,27 +163,68 @@ function main(){
 
     process.on("SIGINT", () => {
         console.log("[Headless] SIGINT recebido. Encerrando gRPC...");
-        server.tryShutdown((err) => {
-            if (err) {
-                console.error("[Headless] Erro ao encerrar:", err);
-                process.exit(1);
-            }
-
-            console.log("[Headless] gRPC encerrado com sucesso.");
-            process.exit(0);
-        });
+        shutdown(server, "SIGINT");
     });
 
     process.on("SIGTERM", () => {
         console.log("[Headless] SIGTERM recebido. Encerrando gRPC...");
+        shutdown(server, "SIGTERM");
+    });
+}
+
+/*
+    SAFE SHUTDOWN - Close all gRPC/ffmpeg/mediasoup open process
+*/
+async function shutdown(server, signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    console.log(`[Headless] ${signal} recebido. Encerrando headless...`);
+
+    try {    
+        await shutdownGrpcServer(server, 5000);
+
+        console.log("[Headless] gRPC encerrado com sucesso.");
+        process.exit(0);
+    } catch (err) {
+        console.error("[Headless] Erro durante shutdown:", err);
+        process.exit(1);
+    }
+}
+
+function shutdownGrpcServer(server, timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+        let finished = false;
+
+        const timer = setTimeout(() => {
+            if (finished) return;
+
+            finished = true;
+
+            console.warn(
+                "[Headless] gRPC não encerrou graciosamente. Forçando shutdown..."
+            );
+
+            try {
+                server.forceShutdown();
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        }, timeoutMs);
+
         server.tryShutdown((err) => {
+            if (finished) return;
+
+            finished = true;
+            clearTimeout(timer);
+
             if (err) {
-                console.error("[Headless] Erro ao encerrar:", err);
-                process.exit(1);
+                reject(err);
+                return;
             }
 
-            console.log("[Headless] gRPC encerrado com sucesso.");
-            process.exit(0);
+            resolve();
         });
     });
 }

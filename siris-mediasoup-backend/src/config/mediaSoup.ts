@@ -56,16 +56,23 @@ export const mediaSoupConfig = {
 
   /**
    * WebRTC transport defaults
+   * 
+   * (!) importante - para evitar dor de caneça depois!! :
+   *  -> para teste local usar 127.0.0.1 em listenIps.ip e listenIp.ip
+   *     e announcedIp: null
+   * 
+   *  -> para teste em nuvem usar 0.0.0.0 em listensIps.ip e listenIp.ip
+   *    e announcedIp: null 
    */
   webRtcTransport: {
     listenIps: [
       {
-        ip: "0.0.0.0", // "0.0.0.0", // 127.0.0.1
-        announcedIp: "172.104.199.107" // "172.104.199.107", // public IP when behind NAT
+        ip: "127.0.0.1", // "0.0.0.0", // 127.0.0.1
+        announcedIp: null,//"172.104.199.107", // public IP when behind NAT
       },
     ],
     
-    listenIp: { ip: "0.0.0.0" },
+    listenIp: { ip: "127.0.0.1" },
     enableUdp: true,
     enableTcp: true,
     preferUdp: true,

@@ -39,7 +39,8 @@ class SessionManager{
         
         // o formato q o ffmpeg espera para os arquvios é uma string com - unicamente - o caminho do arquivo
         let sessionFiles = [];
-        if(session?.files) sessionFiles = this.prepareFiles(session.files);
+        if(session?.files?.length) 
+            sessionFiles = this.prepareFiles(session.files);
 
         const newSession = new Session(session.id, session.name, session.creator, session.startDateTime, session.endDateTime, sessionFiles, `${session.id}`);
         
@@ -59,7 +60,7 @@ class SessionManager{
     // atualiza sessão pasada no param
     updateSession(sessionId, session){
         try{
-            let sessionFiles = "";
+            let sessionFiles = [];
             if(session?.files?.length) 
                 sessionFiles = this.prepareFiles(session.files);
 
@@ -201,18 +202,43 @@ class SessionManager{
         console.log(`[SessionManager]: Sessão não encontrada!`);
     }
 
+    // função para fechar de forma segura qualquer processo ou sessão aberta
+    shutdown(){
+        console.log("[SessionManager]: encerrando sessões...");
+
+        if(this.nextTimer){
+            clearTimeout(this.nextTimer);
+            this.nextTimer = null;
+        }
+
+        const runners = Array.from(this.runningSessions.values());
+        for(const runner of runners){
+            try{
+                runner.cancel();
+
+            } catch (err){
+                console.log("[SessionManager]: erro encerrando runner: ", err);
+            }
+        }
+
+        this.runningSessions.clear();
+        console.log("[SessionManager]: sessões encerradas");
+    }
+
     // função aux para preparar os arquivos da sessão num formato compatível ffmpeg
     prepareFiles(files){
         console.log("files in prepare files ", files);
-        let treatedFiles = files.splice(",");
-
+    
         const isWindows = os.platform() === 'win32';
-        return treatedFiles.filter(path => {
-            if(!path){
+        
+        return files.filter(file => {
+            const filePath = file?.path;
+            if(!filePath){
                 return false;
             }
+
             try{
-                return fs.existsSync(path);
+                return fs.existsSync(filePath);
             }catch(err){
                 console.log(`[SessionManager]: error in prepareFiles: ${err}`);
                 return false;
@@ -221,7 +247,7 @@ class SessionManager{
         .map(f => {
             console.log('f:', f);
             // Resolve para caminho absoluto
-            let resolvedPath = path.resolve(f);
+            let resolvedPath = path.resolve(f.path);
             // Normaliza separadores conforme o SO
             resolvedPath = path.normalize(resolvedPath);
 
@@ -234,7 +260,11 @@ class SessionManager{
             // Escapa apóstrofos e espaços
             const safePath = resolvedPath.replace(/"/g, '\\"');
             console.log(`${safePath}`);
-            return `${safePath}`;  
+
+            return {
+                ...f,
+                path: safePath
+            };  
         });
     }
 }
