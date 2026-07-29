@@ -1,52 +1,15 @@
 const { spawn } = require("child_process");
+const path = require("path")
+const fs = require("fs")
+const os = require ("os")
+const ffmpegPath = process.env.FFMPEG_PATH || "ffmpeg";
 
 /**
  * Controla a reprodução de arquivos por ffmpeg:
  *  - Start() - inicia transmissão rtp
  *  - Stop() - para transmissão rtp
- */
-
-/*
-
-rascunho
-const args = [
-                "-loglevel", "info",
-                "-report",
-
-                "-re",
-                "-i", file,
-                
-                // AUDIO
-                "-map", "0:a:0?",
-                "-c:a", "libopus",
-                "-b:a", "128k",
-                "-ar", "48000",
-                "-ac", "2",
-                "-payload_type", "101",
-                "-ssrc", "11111111", // (*) conferir se há conflito em sim
-
-                // melhora sincronização do áudio
-                "-af", "aresample=async=1:first_pts=0",
-
-                // VIDEO
-                "-map", "0:v:0?",
-                "-c:v", "libvpx",
-
-                "-b:v", "1000k",
-                "-deadline", "realtime",
-                "-cpu-used", "4",
-                "-pix_fmt", "yuv420p",
-                "-payload_type", "102",
-                "-ssrc", "22222222",
-
-                "-vsync", "1",
-
-                "-f", "tee",
-                `[select=a:f=rtp:ssrc=11111111:payload_type=101]rtp://${audio.ip}:${audio.port}?rtcpport=${audio.rtcpPort}|` +
-                `[select=v:f=rtp:ssrc=22222222:payload_type=102]rtp://${video.ip}:${video.port}?rtcpport=${video.rtcpPort}`
-            ];
-
 */
+
 
 class FFmpegService{
     constructor(){
@@ -73,6 +36,17 @@ class FFmpegService{
         return this._runProcess(file, args);
     }
 
+    async startPlaylist(files, rtpParams) {
+        if (this.process) {
+            throw new Error("[FfmpegService]: Ffmpeg process already running");
+        }
+
+        const listPath = this._createConcatList(files);
+        const args = this._buildCopyPreparedPlayListArgs(listPath, rtpParams);
+
+        return this._runProcess(listPath, args);
+    }
+
     stop(){
         if (!this.process) return;
 
@@ -97,7 +71,9 @@ class FFmpegService{
         return new Promise((resolve, reject) => {
             this.stopping = false;
 
-            this.process = spawn("ffmpeg", args, {
+            console.log(`[FFmpegService]: usando FFmpeg em: ${ffmpegPath}`);
+
+            this.process = spawn(ffmpegPath, args, {
                 stdio: ["ignore", "ignore", "pipe"]
             });
 
@@ -180,6 +156,36 @@ class FFmpegService{
         ];
     }
 
+    _buildCopyPreparedPlayListArgs(listPath, rtpParams){
+        const { audio, video } = rtpParams;
+
+        const audioSsrc = "11111111";
+        const videoSsrc = "22222222";
+
+        return [
+            "-hide_banner",
+            "-loglevel", "info",
+
+            "-re",
+            "-fflags", "+genpts",
+
+            "-f", "concat",
+            "-safe", "0",
+            "-i", listPath,
+
+            "-map", "0:a:0?",
+            "-map", "0:v:0?",
+
+            "-c", "copy",
+
+            "-flush_packets", "1",
+
+            "-f", "tee",
+            `[select=a:f=rtp:ssrc=${audioSsrc}:payload_type=101]rtp://${audio.ip}:${audio.port}?rtcpport=${audio.rtcpPort}&pkt_size=1200|` +
+            `[select=v:f=rtp:ssrc=${videoSsrc}:payload_type=102]rtp://${video.ip}:${video.port}?rtcpport=${video.rtcpPort}&pkt_size=1200`
+        ];
+    }
+
     _buildRealTimeTranscodeArgs(file, rtpParams){
         const { audio, video } = rtpParams;
 
@@ -234,6 +240,29 @@ class FFmpegService{
             `[select=a:f=rtp:ssrc=${audioSsrc}:payload_type=101]rtp://${audio.ip}:${audio.port}?rtcpport=${audio.rtcpPort}&pkt_size=1200|` +
             `[select=v:f=rtp:ssrc=${videoSsrc}:payload_type=102]rtp://${video.ip}:${video.port}?rtcpport=${video.rtcpPort}&pkt_size=1200`
         ];
+    }
+
+    _createConcatList(files) {
+        const listPath = path.join(os.tmpdir(), `playlist-${crypto.randomUUID()}.ffconcat`);
+
+        const escapePath = (filePath) => {
+            let resolved = path.resolve(filePath);
+
+            if (os.platform() === "win32") {
+                resolved = resolved.replace(/\\/g, "/");
+            }
+
+            return resolved.replace(/'/g, "'\\''");
+        };
+
+        const content = [
+            "ffconcat version 1.0",
+            ...files.map(file => `file '${escapePath(file.path)}'`)
+        ].join("\n");
+
+        fs.writeFileSync(listPath, content);
+
+        return listPath;
     }
 
     _normalizePlaybackMode(playbackMode) {

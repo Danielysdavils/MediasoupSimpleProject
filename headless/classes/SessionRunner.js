@@ -43,26 +43,33 @@ class SessionRunner {
                 this._scheduleEnd();
             });
 
-            // inicia a reprodução de cada arquivo
-            while(!this.cancelled){
-                if(this.session.isFinishedByTime()){
-                    console.log("[Runner] tempo da sessão acabou");
-                    break;
-                }
-
-                const file = this.session.files[this.session.index];
-                if(!file){
-                    console.log("[Runner] playlist terminou, aguardando fim da sessão");
-
-                    // espera até o endDateTime
-                    await this._waitUntilEnd();
-                    break;
-                }
-
-                await this._playFile(file);
-
-                this.session.index++;
+            if(!this.cancelled && !this.session.isFinishedByTime()){
+                await this.__playList(this.session.files);
             }
+
+            // ======= para reprodução por arquivo ===========
+            // inicia a reprodução de cada arquivo
+            // while(!this.cancelled){
+            //     if(this.session.isFinishedByTime()){
+            //         console.log("[Runner] tempo da sessão acabou");
+            //         break;
+            //     }
+
+            //     const file = this.session.files[this.session.index];
+            //     if(!file){
+            //         console.log("[Runner] playlist terminou, aguardando fim da sessão");
+
+            //         // espera até o endDateTime
+            //         await this._waitUntilEnd();
+            //         break;
+            //     }
+
+            //     await this._playFile(file);
+
+            //     this.session.index++;
+            // }
+            // ====================================================
+
             console.log(`[Runner] session finished`);
             //this.session.status = "finished";
         
@@ -93,6 +100,22 @@ class SessionRunner {
             // inicia a transmissão ffmpeg
             await this.ffmpeg.start(file.path, rtpParams, file.playbackMode);
         });
+    }
+
+    async __playList(files){
+        return this.queue.add(async () => {
+            if(this.cancelled) return;
+
+            // em playlist chamamos só 1 vez
+            await this.mediaSoup.resetPipeline();
+
+            const rtpParams = this.mediaSoup.getRtpParams();
+
+            await this.ffmpeg.startPlaylist(files, rtpParams);
+
+            // caso termine antes, espera fim da sessão
+            await this._waitUntilEnd();
+        })
     }
 
     /**

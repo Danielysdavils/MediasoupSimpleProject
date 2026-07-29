@@ -67,12 +67,12 @@ export const mediaSoupConfig = {
   webRtcTransport: {
     listenIps: [
       {
-        ip: "127.0.0.1", // "0.0.0.0", // 127.0.0.1
-        announcedIp: null,//"172.104.199.107", // public IP when behind NAT
+        ip: "0.0.0.0", // "0.0.0.0", // 127.0.0.1
+        announcedIp: "172.16.2.196",//"172.104.199.107", // public IP when behind NAT
       },
     ],
     
-    listenIp: { ip: "127.0.0.1" },
+    listenIp: { ip: "0.0.0.0" },
     enableUdp: true,
     enableTcp: true,
     preferUdp: true,

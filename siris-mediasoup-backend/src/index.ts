@@ -22,8 +22,8 @@ async function main() {
     : https.createServer(
         // ✅ dev/build
         {
-          key: fs.readFileSync("./siris.local+2-key.pem"),
-          cert: fs.readFileSync("./siris.local+2.pem"),
+          key: fs.readFileSync("./siris.local+3-key.pem"),
+          cert: fs.readFileSync("./siris.local+3.pem"),
         },
         app
       );

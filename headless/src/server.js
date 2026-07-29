@@ -24,10 +24,10 @@ const proto = grpc.loadPackageDefinition(packageDef).sessions;
 const PORT = process.env.GRPC_PORT || "127.0.0.1:50051";
 
 // (!) para teste local
-const serverUrl = "https://siris.local:3031";
+//const serverUrl = "https://siris.local:3031";
 
 // para deploy servidor desenvolvimento
-//const serverUrl = "https://siris.dyndns.org";
+const serverUrl = "https://siris.dyndns.org";
 
 const manager = new SessionManager(serverUrl);
 
